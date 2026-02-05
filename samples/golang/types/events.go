@@ -17,23 +17,15 @@ type InteractionType string
 const (
 	MessageItemRoleUser      MessageRole = "user"      // 用户输入
 	MessageItemRoleAssistant MessageRole = "assistant" // Agent 回复或操作
-	MessageItemRoleTool      MessageRole = "tool"      // @deprecated 工具执行结果
 	MessageItemRoleSystem    MessageRole = "system"    // 系统消息
 )
 
 // 内容类型 (Content Type)
 const (
-	MessageItemContentTypeText               ContentType = "text"                 // 纯文本
-	MessageItemContentTypeSpinText           ContentType = "spin_text"            // 旋转文本，用于显示工作和思考过程
-	MessageItemContentTypeImage              ContentType = "image"                // 图片
-	MessageItemContentTypeThreadTitleUpdated ContentType = "thread_title_updated" // @deprecated 会话标题更新
+	MessageItemContentTypeText     ContentType = "text"      // 纯文本
+	MessageItemContentTypeSpinText ContentType = "spin_text" // 旋转文本，用于显示工作和思考过程
+	MessageItemContentTypeImage    ContentType = "image"     // 图片
 )
-
-// // 组件类型 (Item Type)
-// const (
-// 	ItemTypeFunction ItemType = "function" // 函数/工具调用
-// 	ItemTypeAgent    ItemType = "agent"    // 子 Agent 调用
-// )
 
 // 事件类型 (Event Type)
 type EventType string
