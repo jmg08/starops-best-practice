@@ -62,10 +62,10 @@ const (
 
 // 交互类型 (Interaction Type)
 const (
-	InteractionTypeUserAck    InteractionType = "user_ack"    // 在用，点击确认
+	InteractionTypeUserAck    InteractionType = "user_ack"    // 点击确认
 	InteractionTypeUserSelect InteractionType = "user_select" // 选择框
 	InteractionTypeUserInput  InteractionType = "user_input"  // 用户输入
-	InteractionTypeSlsQuery   InteractionType = "sls_query"   // 在用，SLS 查询
+	InteractionTypeSlsQuery   InteractionType = "sls_query"   // SLS 查询
 )
 
 // =================================================================================
@@ -108,7 +108,6 @@ type MessageItem struct {
 	Agents []*ItemAgent `json:"agents,omitempty"`
 
 	// Events 事件列表。
-	// 更加通用的事件表达方式，支持更多类型的消息。例如 会话标题更新、内部错误事件、会话状态更新、通知消息、任务完成等。
 	Events []*ItemEvent `json:"events,omitempty"`
 
 	// Artifacts 产物列表。
@@ -132,14 +131,13 @@ type ItemContent struct {
 	// Append 是否是追加内容，Stream模式下默认都为true
 	Append bool `json:"append"`
 
-	// LastChunk 是否是最后一个 chunk，为 true 时代表最后一个，需要换窗口
-	// @注意： 为 LastChunk 时，Value可能为空
+	// LastChunk 是否是最后一个 chunk，为 true 时代表最后一个
 	LastChunk bool `json:"lastChunk"`
 }
 
 // ItemTool 工具调用详情
 type ItemTool struct {
-	// ID 工具调用的唯一标识，用于 UI 展示和关联。
+	// ID 工具调用的唯一标识
 	ID string `json:"id"`
 
 	// Name 工具名称。
@@ -148,7 +146,7 @@ type ItemTool struct {
 	// ToolCallID 本次调用的上下文 ID。
 	ToolCallID string `json:"toolCallId"`
 
-	// ArgumentsDelta 工具调用参数增量，只有在 Status init 阶段才会有
+	// ArgumentsDelta 工具调用参数增量
 	ArgumentsDelta string `json:"argumentsDelta,omitempty"`
 
 	// Arguments 工具调用参数。
@@ -178,7 +176,7 @@ type ItemAgent struct {
 	// Inputs Agent 调用的输入内容，可能有多个，例如 文本 + 图片等
 	Inputs []*ItemContent `json:"inputs,omitempty"`
 
-	// Results Agent 的输出内容概要（详细内容通过独立消息返回）。TODO 暂不使用
+	// Results Agent 的输出内容概要（详细内容通过独立消息返回）
 	Results []*ItemContent `json:"results,omitempty"`
 }
 
@@ -229,22 +227,16 @@ type ItemSessionStatusUpdatedPayload struct {
 }
 
 type ItemThinkingPayload struct {
-	// Reasoning 思考内容。默认所有的 Thinking 内容都是追加的，只有在遇到其他事件，停止Thinking
 	ReasoningDelta string `json:"reasoningDelta"`
 }
 
 type ItemInteractiveUserAckPayload map[string]any
 type ItemInteractivePayload struct {
-	// InteractiveType 交互类型，如 "user_ack", "user_select".
-	InteractiveType InteractionType `json:"type"`
-	// MetaData 最核心的部分
-	Meta map[string]interface{} `json:"meta,omitempty"`
-	// Data 返回的数据。
-	Data []map[string]interface{} `json:"data,omitempty"`
-	// Queries 查询列表（SQL Agent 使用）。 当前SQL生成使用，待废弃
-	Queries []map[string]interface{} `json:"queries,omitempty"`
-	// UserAck 用户确认负载。
-	UserAck *ItemInteractiveUserAckPayload `json:"userAck,omitempty"`
+	InteractiveType InteractionType                `json:"type"`
+	Meta            map[string]interface{}         `json:"meta,omitempty"`
+	Data            []map[string]interface{}       `json:"data,omitempty"`
+	Queries         []map[string]interface{}       `json:"queries,omitempty"`
+	UserAck         *ItemInteractiveUserAckPayload `json:"userAck,omitempty"`
 }
 
 type TaskStatistics struct {
@@ -254,5 +246,5 @@ type TaskStatistics struct {
 type ItemTaskFinishedPayload struct {
 	Success    bool              `json:"success"`              // 任务是否成功
 	Error      *ItemErrorPayload `json:"error,omitempty"`      // 错误信息，只有失败时才有
-	Statistics *TaskStatistics   `json:"statistics,omitempty"` // 任务统计信息，延迟、消耗等，TODO
+	Statistics *TaskStatistics   `json:"statistics,omitempty"` // 任务统计信息
 }
