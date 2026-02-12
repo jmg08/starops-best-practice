@@ -6,6 +6,7 @@ require (
 	github.com/alibabacloud-go/cms-20240330/v6 v6.0.1
 	github.com/alibabacloud-go/darabonba-openapi/v2 v2.1.14
 	github.com/alibabacloud-go/tea v1.3.13
+	github.com/leanovate/gopter v0.2.11
 )
 
 require (
@@ -17,6 +18,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	golang.org/x/net v0.26.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect

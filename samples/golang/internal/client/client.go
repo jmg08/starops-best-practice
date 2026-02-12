@@ -14,6 +14,15 @@ import (
 	"github.com/alibabacloud-go/tea/dara"
 )
 
+// ChatOptions 对话选项
+// 用于配置对话请求的各种参数
+type ChatOptions struct {
+	Timeout    time.Duration          // 超时时间，0 表示不设置超时
+	Variables  map[string]interface{} // 请求变量
+	OnEvent    func(*ChatEvent)       // 事件回调
+	SimpleMode bool                   // 简洁模式，只输出最终文本
+}
+
 // Config 应用配置
 type Config struct {
 	Workspace       string
@@ -231,6 +240,124 @@ func (c *AgentClient) ChatWithVariables(ctx context.Context, threadID, message s
 	}()
 
 	return events
+}
+
+// ChatWithOptions 开始SSE对话（支持选项）
+// 支持超时控制、自定义变量、事件回调和简洁模式
+func (c *AgentClient) ChatWithOptions(ctx context.Context, threadID, message string, opts *ChatOptions) <-chan *ChatEvent {
+	// 如果没有提供选项，使用默认值
+	if opts == nil {
+		opts = &ChatOptions{}
+	}
+
+	// 如果设置了超时，创建带超时的 context
+	var cancel context.CancelFunc
+	if opts.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
+	}
+
+	// 使用提供的变量或默认变量
+	variables := opts.Variables
+	if variables == nil {
+		variables = map[string]interface{}{
+			"workspace": c.config.Workspace,
+			"region":    c.config.Region,
+			"language":  "zh",
+			"timeZone":  "Asia/Shanghai",
+			"timeStamp": fmt.Sprintf("%d", time.Now().Unix()),
+		}
+	}
+
+	// 获取基础事件通道
+	baseEvents := c.ChatWithVariables(ctx, threadID, message, variables)
+
+	// 创建输出通道
+	events := make(chan *ChatEvent, 10)
+
+	go func() {
+		defer close(events)
+		if cancel != nil {
+			defer cancel()
+		}
+
+		startTime := time.Now()
+
+		for {
+			select {
+			case event, ok := <-baseEvents:
+				if !ok {
+					return
+				}
+
+				// 如果是 context 超时错误，包装为超时错误
+				if event.Error != nil && ctx.Err() == context.DeadlineExceeded {
+					elapsed := time.Since(startTime)
+					event.Error = &TimeoutError{
+						Duration: opts.Timeout,
+						Elapsed:  elapsed,
+					}
+				}
+
+				// 调用事件回调
+				if opts.OnEvent != nil {
+					opts.OnEvent(event)
+				}
+
+				events <- event
+
+				if event.IsDone || event.Error != nil {
+					return
+				}
+
+			case <-ctx.Done():
+				// 处理超时或取消
+				elapsed := time.Since(startTime)
+				var err error
+				if ctx.Err() == context.DeadlineExceeded {
+					err = &TimeoutError{
+						Duration: opts.Timeout,
+						Elapsed:  elapsed,
+					}
+				} else {
+					err = ctx.Err()
+				}
+				event := &ChatEvent{Error: err}
+				if opts.OnEvent != nil {
+					opts.OnEvent(event)
+				}
+				events <- event
+				return
+			}
+		}
+	}()
+
+	return events
+}
+
+// ChatWithTimeout 带超时的对话
+// 这是 ChatWithOptions 的便捷方法，只设置超时参数
+func (c *AgentClient) ChatWithTimeout(ctx context.Context, threadID, message string, timeout time.Duration) <-chan *ChatEvent {
+	return c.ChatWithOptions(ctx, threadID, message, &ChatOptions{
+		Timeout: timeout,
+	})
+}
+
+// TimeoutError 超时错误
+// 包含配置的超时时间和实际经过的时间
+type TimeoutError struct {
+	Duration time.Duration // 配置的超时时间
+	Elapsed  time.Duration // 实际经过的时间
+}
+
+// Error 实现 error 接口
+func (e *TimeoutError) Error() string {
+	return fmt.Sprintf("请求超时: 配置超时 %v, 已经过 %v", e.Duration, e.Elapsed)
+}
+
+// IsTimeout 检查错误是否为超时错误
+func IsTimeout(err error) bool {
+	_, ok := err.(*TimeoutError)
+	return ok
 }
 
 func isDoneMessage(body *cms.CreateChatResponseBody) bool {

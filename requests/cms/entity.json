@@ -1,7 +1,7 @@
 {
     "region": "cn-hongkong",
     "digitalEmployeeName": "apsara-ops",
-    "threadId": "thread-t9z7bq-39v8yh530azv6",
+    "threadId": "",
     "action": "create",
     "messages": [
         {
@@ -15,9 +15,9 @@
         }
     ],
     "variables": {
-        "workspace": "rca-benchmark",
+        "workspace": "default-cms-1819385687343877-cn-hongkong",
         "region": "cn-hongkong",
-        "project": "cms-rca-benchmark-z4ea5tbdjhn6bff3",
+        "project": "default-cms-1819385687343877-cn-hongkong",
         "language": "zh",
         "timeZone": "Asia/Shanghai",
         "timeStamp": "1770280244",
