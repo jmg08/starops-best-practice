@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cms-sdk-samples"
+version = "1.0.0"
+description = "Alibaba Cloud CMS SDK samples for Python"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Alibaba Cloud", email = "support@alibabacloud.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "alibabacloud-cms20240330>=6.0.1",
+    "alibabacloud-tea-openapi>=0.3.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+]
+
+[project.scripts]
+cms-chat = "cms_sdk_samples.examples.chat:main"
+cms-chat-from-file = "cms_sdk_samples.examples.chat_from_file:main"
+cms-chat-interactive = "cms_sdk_samples.examples.chat_interactive:main"
+cms-thread-manager = "cms_sdk_samples.examples.thread_manager:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cms_sdk_samples*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

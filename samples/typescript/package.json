@@ -1,0 +1,40 @@
+{
+  "name": "cms-sdk-samples",
+  "version": "1.0.0",
+  "description": "Alibaba Cloud CMS SDK samples for TypeScript",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "chat": "tsx src/examples/chat.ts",
+    "chat-from-file": "tsx src/examples/chat-from-file.ts",
+    "chat-interactive": "tsx src/examples/chat-interactive.ts",
+    "thread-manager": "tsx src/examples/thread-manager.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "alibaba-cloud",
+    "cms",
+    "sdk",
+    "samples"
+  ],
+  "author": "Alibaba Cloud",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@alicloud/cms20240330": "^6.0.1",
+    "@alicloud/openapi-client": "^0.4.0",
+    "dotenv": "^16.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsx": "^4.6.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  }
+}

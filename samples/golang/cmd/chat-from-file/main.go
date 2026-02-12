@@ -53,7 +53,7 @@ var (
 	filePath   = flag.String("file", "", "请求 JSON 文件路径")
 	dirPath    = flag.String("dir", "", "请求文件目录，处理目录下所有 JSON 文件")
 	simpleMode = flag.Bool("simple", false, "简洁模式，只输出最终文本")
-	outputDir  = flag.String("output", "output", "输出目录")
+	outputDir  = flag.String("output", "../../requests/output", "输出目录")
 )
 
 func main() {
