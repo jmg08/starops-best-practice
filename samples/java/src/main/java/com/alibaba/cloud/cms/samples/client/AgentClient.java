@@ -1,14 +1,31 @@
 package com.alibaba.cloud.cms.samples.client;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+
 import com.aliyun.cms20240330.Client;
-import com.aliyun.cms20240330.models.*;
-import com.aliyun.tea.TeaModel;
+import com.aliyun.cms20240330.models.CreateChatRequest;
+import com.aliyun.cms20240330.models.CreateChatResponse;
+import com.aliyun.cms20240330.models.CreateThreadRequest;
+import com.aliyun.cms20240330.models.CreateThreadResponse;
+import com.aliyun.cms20240330.models.GetThreadDataRequest;
+import com.aliyun.cms20240330.models.GetThreadDataResponse;
+import com.aliyun.cms20240330.models.GetThreadDataResponseBody;
+import com.aliyun.cms20240330.models.GetThreadResponse;
+import com.aliyun.cms20240330.models.ListThreadsRequest;
+import com.aliyun.cms20240330.models.ListThreadsResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.*;
 
 /**
  * Agent 客户端
@@ -303,23 +320,78 @@ public class AgentClient {
                         .withSuggestion("请稍后重试");
             }
 
-            List<ThreadMessage> messages = new ArrayList<>();
+            // Strategy: prefer system Result over assistant streaming messages
+            // 策略：优先使用 system Result，而不是 assistant 流式消息
+            Map<String, ThreadMessage> messageMap = new LinkedHashMap<>();
+            
+            // Check if any system Result exists
+            // 检查是否存在 system Result
+            boolean hasSystemResult = false;
             if (response.getBody().getData() != null) {
+                outer:
                 for (var data : response.getBody().getData()) {
                     if (data.getMessages() != null) {
                         for (var msg : data.getMessages()) {
-                            String content = extractMessageContent(msg);
-                            messages.add(new ThreadMessage(
-                                    msg.getRole(),
-                                    content,
-                                    msg.getTimestamp()
-                            ));
+                            if ("system".equals(msg.getRole()) && msg.getArtifacts() != null) {
+                                for (var artifact : msg.getArtifacts()) {
+                                    if (artifact != null && "Result".equals(artifact.get("name"))) {
+                                        hasSystemResult = true;
+                                        break outer;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            return messages;
+            // Process messages
+            if (response.getBody().getData() != null) {
+                for (var data : response.getBody().getData()) {
+                    if (data.getMessages() != null) {
+                        for (var msg : data.getMessages()) {
+                            String role = msg.getRole() != null ? msg.getRole() : "";
+                            String timestamp = msg.getTimestamp() != null ? msg.getTimestamp() : "";
+                            
+                            // Skip assistant streaming messages if system Result exists
+                            if ("assistant".equals(role) && hasSystemResult) {
+                                continue;
+                            }
+                            
+                            // Use different key strategy based on role
+                            String key;
+                            if ("user".equals(role)) {
+                                key = "user-" + timestamp;
+                            } else if ("system".equals(role)) {
+                                key = "system-" + timestamp;
+                            } else {
+                                String callId = msg.getCallId() != null ? msg.getCallId() : "";
+                                key = "assistant-" + callId;
+                            }
+                            
+                            String content = extractMessageContent(msg);
+                            if (content == null || content.isEmpty()) {
+                                continue;
+                            }
+
+                            if (messageMap.containsKey(key)) {
+                                ThreadMessage existing = messageMap.get(key);
+                                messageMap.put(key, new ThreadMessage(
+                                        existing.getRole(),
+                                        existing.getContent() + content,
+                                        existing.getTimestamp()
+                                ));
+                            } else {
+                                // For system messages, display as assistant role
+                                String displayRole = "system".equals(role) ? "assistant" : role;
+                                messageMap.put(key, new ThreadMessage(displayRole, content, timestamp));
+                            }
+                        }
+                    }
+                }
+            }
+
+            return new ArrayList<>(messageMap.values());
         } catch (SDKException e) {
             throw e;
         } catch (Exception e) {
@@ -356,19 +428,52 @@ public class AgentClient {
     }
 
     private String extractMessageContent(GetThreadDataResponseBody.GetThreadDataResponseBodyDataMessages msg) {
-        if (msg == null || msg.getContents() == null) return "";
+        if (msg == null) return "";
 
-        StringBuilder result = new StringBuilder();
-        for (var content : msg.getContents()) {
-            if (content != null) {
-                Object type = content.get("type");
-                Object value = content.get("value");
-                if ("text".equals(type) && value != null) {
-                    result.append(value.toString());
+        // 1. Try to extract from contents (streaming text chunks)
+        // 尝试从 contents 提取（流式文本块）
+        if (msg.getContents() != null) {
+            StringBuilder result = new StringBuilder();
+            for (var content : msg.getContents()) {
+                if (content != null) {
+                    Object type = content.get("type");
+                    Object value = content.get("value");
+                    if ("text".equals(type) && value != null) {
+                        result.append(value.toString());
+                    }
+                }
+            }
+            if (result.length() > 0) {
+                return result.toString();
+            }
+        }
+
+        // 2. Try to extract from artifacts (final result)
+        // 尝试从 artifacts 提取（最终结果）
+        if (msg.getArtifacts() != null) {
+            for (var artifact : msg.getArtifacts()) {
+                if (artifact != null && "Result".equals(artifact.get("name"))) {
+                    Object partsObj = artifact.get("parts");
+                    if (partsObj instanceof List) {
+                        List<?> parts = (List<?>) partsObj;
+                        StringBuilder textParts = new StringBuilder();
+                        for (Object partObj : parts) {
+                            if (partObj instanceof Map) {
+                                Map<?, ?> part = (Map<?, ?>) partObj;
+                                if ("text".equals(part.get("kind")) && part.get("text") != null) {
+                                    textParts.append(part.get("text").toString());
+                                }
+                            }
+                        }
+                        if (textParts.length() > 0) {
+                            return textParts.toString();
+                        }
+                    }
                 }
             }
         }
-        return result.toString();
+
+        return "";
     }
 
     public void shutdown() {

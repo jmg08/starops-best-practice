@@ -84,6 +84,16 @@ htmlcov/
 
 # Jupyter
 .ipynb_checkpoints/
+chat-from-*
+chat-entity
+thread-manager
+chat-bin
+chat-interactive
+chat
+*.sh
+指导规范.md
+samples/**/.env.example
+LANGUAGE_ROADMAP.md
 
 # MyPy
 .mypy_cache/
@@ -165,3 +175,4 @@ logs/
 *.key
 credentials.json
 secrets.json
+.gitignore

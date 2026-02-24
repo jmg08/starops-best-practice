@@ -1,16 +1,25 @@
 package com.alibaba.cloud.cms.samples.examples;
 
-import com.alibaba.cloud.cms.samples.client.*;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import java.io.*;
-import java.nio.file.*;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+
+import com.alibaba.cloud.cms.samples.client.AgentClient;
+import com.alibaba.cloud.cms.samples.client.ChatEvent;
+import com.alibaba.cloud.cms.samples.client.Config;
+import com.alibaba.cloud.cms.samples.client.SDKException;
+import com.alibaba.cloud.cms.samples.client.SimplePrinter;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * 从文件加载请求示例

@@ -1,10 +1,14 @@
 package com.alibaba.cloud.cms.samples.examples;
 
-import com.alibaba.cloud.cms.samples.client.*;
-
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.concurrent.BlockingQueue;
+
+import com.alibaba.cloud.cms.samples.client.AgentClient;
+import com.alibaba.cloud.cms.samples.client.ChatEvent;
+import com.alibaba.cloud.cms.samples.client.Config;
+import com.alibaba.cloud.cms.samples.client.SDKException;
+import com.alibaba.cloud.cms.samples.client.SimplePrinter;
 
 /**
  * 交互式对话示例

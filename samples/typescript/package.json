@@ -10,7 +10,6 @@
     "clean": "rm -rf dist",
     "chat": "tsx src/examples/chat.ts",
     "chat-from-file": "tsx src/examples/chat-from-file.ts",
-    "chat-interactive": "tsx src/examples/chat-interactive.ts",
     "thread-manager": "tsx src/examples/thread-manager.ts",
     "test": "vitest run",
     "test:watch": "vitest"

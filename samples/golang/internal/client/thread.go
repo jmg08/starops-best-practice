@@ -247,9 +247,46 @@ func (c *AgentClient) GetThreadData(ctx context.Context, threadID string, limit 
 			WithSuggestion("请稍后重试")
 	}
 
-	// 转换结果
-	// Convert results
-	var messages []*ThreadMessage
+	// 策略：优先使用 system Result，而不是 assistant 流式消息
+	// Strategy: prefer system Result over assistant streaming messages
+	messageMap := make(map[string]*ThreadMessage)
+	messageOrder := []string{} // 保持顺序 / maintain order
+
+	// 检查是否存在 system Result
+	// Check if any system Result exists
+	hasSystemResult := false
+	for _, data := range resp.Body.Data {
+		if data == nil {
+			continue
+		}
+		for _, msg := range data.Messages {
+			if msg == nil {
+				continue
+			}
+			if dara.StringValue(msg.Role) == "system" {
+				for _, artifact := range msg.Artifacts {
+					if artifact == nil {
+						continue
+					}
+					if nameVal, ok := artifact["name"]; ok {
+						if nameStr, ok := nameVal.(string); ok && nameStr == "Result" {
+							hasSystemResult = true
+							break
+						}
+					}
+				}
+			}
+			if hasSystemResult {
+				break
+			}
+		}
+		if hasSystemResult {
+			break
+		}
+	}
+
+	// 处理消息
+	// Process messages
 	for _, data := range resp.Body.Data {
 		if data == nil {
 			continue
@@ -259,17 +296,60 @@ func (c *AgentClient) GetThreadData(ctx context.Context, threadID string, limit 
 				continue
 			}
 
+			role := dara.StringValue(msg.Role)
+			timestamp := dara.StringValue(msg.Timestamp)
+
+			// 如果存在 system Result，跳过 assistant 流式消息
+			// Skip assistant streaming messages if system Result exists
+			if role == "assistant" && hasSystemResult {
+				continue
+			}
+
+			// 根据角色使用不同的键策略
+			// Use different key strategy based on role
+			var key string
+			if role == "user" {
+				key = "user-" + timestamp
+			} else if role == "system" {
+				key = "system-" + timestamp
+			} else {
+				callID := dara.StringValue(msg.CallId)
+				key = "assistant-" + callID
+			}
+
 			// 提取消息内容
 			// Extract message content
 			content := extractMessageContent(msg)
-
-			message := &ThreadMessage{
-				Role:      dara.StringValue(msg.Role),
-				Content:   content,
-				Timestamp: dara.StringValue(msg.Timestamp),
+			if content == "" {
+				continue
 			}
-			messages = append(messages, message)
+
+			if existing, ok := messageMap[key]; ok {
+				// 追加内容到现有消息
+				// Append content to existing message
+				existing.Content += content
+			} else {
+				// 对于 system 消息，显示为 assistant 角色
+				// For system messages, display as assistant role
+				displayRole := role
+				if role == "system" {
+					displayRole = "assistant"
+				}
+				messageMap[key] = &ThreadMessage{
+					Role:      displayRole,
+					Content:   content,
+					Timestamp: timestamp,
+				}
+				messageOrder = append(messageOrder, key)
+			}
 		}
+	}
+
+	// 按顺序返回消息
+	// Return messages in order
+	var messages []*ThreadMessage
+	for _, key := range messageOrder {
+		messages = append(messages, messageMap[key])
 	}
 
 	return messages, nil
@@ -330,8 +410,8 @@ func extractMessageContent(msg *cms.GetThreadDataResponseBodyDataMessages) strin
 		return ""
 	}
 
-	// 尝试从 Contents 字段提取文本
-	// Try to extract text from Contents field
+	// 1. 尝试从 Contents 字段提取文本（流式文本块）
+	// Try to extract text from Contents field (streaming text chunks)
 	var contentParts []string
 	for _, content := range msg.Contents {
 		if content == nil {
@@ -343,33 +423,59 @@ func extractMessageContent(msg *cms.GetThreadDataResponseBodyDataMessages) strin
 		if typeVal, ok := content["type"]; ok {
 			if typeStr, ok := typeVal.(string); ok && typeStr == "text" {
 				if valueVal, ok := content["value"]; ok {
-					if valueStr, ok := valueVal.(string); ok {
+					if valueStr, ok := valueVal.(string); ok && valueStr != "" {
 						contentParts = append(contentParts, valueStr)
 					}
 				}
 			}
 		}
+	}
 
-		// 如果没有 type 字段，尝试直接获取 value 或 text
-		// If no type field, try to get value or text directly
-		if len(contentParts) == 0 {
-			if valueVal, ok := content["value"]; ok {
-				if valueStr, ok := valueVal.(string); ok {
-					contentParts = append(contentParts, valueStr)
-				}
-			} else if textVal, ok := content["text"]; ok {
-				if textStr, ok := textVal.(string); ok {
-					contentParts = append(contentParts, textStr)
+	if len(contentParts) > 0 {
+		return strings.Join(contentParts, "")
+	}
+
+	// 2. 尝试从 Artifacts 字段提取文本（最终结果）
+	// Try to extract text from Artifacts field (final result)
+	for _, artifact := range msg.Artifacts {
+		if artifact == nil {
+			continue
+		}
+
+		// 查找名为 Result 的 artifact
+		// Look for artifact named Result
+		if nameVal, ok := artifact["name"]; ok {
+			if nameStr, ok := nameVal.(string); ok && nameStr == "Result" {
+				if partsVal, ok := artifact["parts"]; ok {
+					if parts, ok := partsVal.([]interface{}); ok {
+						var textParts []string
+						for _, partVal := range parts {
+							if part, ok := partVal.(map[string]interface{}); ok {
+								if kindVal, ok := part["kind"]; ok {
+									if kindStr, ok := kindVal.(string); ok && kindStr == "text" {
+										if textVal, ok := part["text"]; ok {
+											if textStr, ok := textVal.(string); ok && textStr != "" {
+												textParts = append(textParts, textStr)
+											}
+										}
+									}
+								}
+							}
+						}
+						if len(textParts) > 0 {
+							return strings.Join(textParts, "")
+						}
+					}
 				}
 			}
 		}
 	}
 
-	// 如果 Contents 为空，尝试使用 Detail 字段
-	// If Contents is empty, try using Detail field
-	if len(contentParts) == 0 && msg.Detail != nil && *msg.Detail != "" {
+	// 如果 Contents 和 Artifacts 都为空，尝试使用 Detail 字段
+	// If Contents and Artifacts are empty, try using Detail field
+	if msg.Detail != nil && *msg.Detail != "" {
 		return *msg.Detail
 	}
 
-	return strings.Join(contentParts, "\n")
+	return ""
 }

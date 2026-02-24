@@ -139,7 +139,10 @@ export class AgentClient {
         variables: vars,
       });
 
-      const runtime = new $dara.RuntimeOptions({});
+      const runtime = new $dara.RuntimeOptions({
+        readTimeout: 120000,  // 2 minutes
+        connectTimeout: 30000, // 30 seconds
+      });
       const responseIterator = await this.client.createChatWithSSE(request, {}, runtime);
 
       for await (const response of responseIterator) {
@@ -159,7 +162,19 @@ export class AgentClient {
 
       yield { rawJson: '', statusCode: 200, isDone: true };
     } catch (e) {
-      yield { rawJson: '', statusCode: 0, isDone: false, error: SDKException.chatFailed(e as Error) };
+      const err = e as Error;
+      const sdkErr = SDKException.chatFailed(err);
+      // Preserve original error details
+      if (err.message) {
+        sdkErr.withContext('originalMessage', err.message);
+      }
+      if ((err as any).code) {
+        sdkErr.withContext('errorCode', (err as any).code);
+      }
+      if ((err as any).data) {
+        sdkErr.withContext('errorData', JSON.stringify((err as any).data));
+      }
+      yield { rawJson: '', statusCode: 0, isDone: false, error: sdkErr };
     }
   }
 
@@ -293,19 +308,75 @@ export class AgentClient {
           .withSuggestion('请稍后重试');
       }
 
-      const messages: ThreadMessage[] = [];
+      // Strategy: prefer system Result over assistant streaming messages
+      // 策略：优先使用 system Result，而不是 assistant 流式消息
+      // - user messages: use timestamp as key
+      // - system messages with Result: use timestamp as key (display as assistant)
+      // - assistant messages: only include if no system Result exists
+      
+      const messageMap = new Map<string, { role: string; content: string; timestamp: string }>();
+      const messageOrder: string[] = [];
+      
+      // Check if any system Result exists
+      // 检查是否存在 system Result
+      let hasSystemResult = false;
       for (const data of response.body.data || []) {
         for (const msg of data.messages || []) {
+          if (msg.role === 'system') {
+            const artifacts = (msg as any).artifacts as Array<Record<string, unknown>> | undefined;
+            if (artifacts?.some(a => a.name === 'Result')) {
+              hasSystemResult = true;
+              break;
+            }
+          }
+        }
+        if (hasSystemResult) break;
+      }
+
+      // Process messages
+      // 处理消息
+      for (const data of response.body.data || []) {
+        for (const msg of data.messages || []) {
+          const role = msg.role || '';
+          const timestamp = msg.timestamp || '';
+          
+          // Skip assistant streaming messages if system Result exists
+          // 如果存在 system Result，跳过 assistant 流式消息
+          if (role === 'assistant' && hasSystemResult) {
+            continue;
+          }
+          
+          // Use different key strategy based on role
+          // 根据角色使用不同的键策略
+          let key: string;
+          if (role === 'user') {
+            key = `user-${timestamp}`;
+          } else if (role === 'system') {
+            key = `system-${timestamp}`;
+          } else {
+            const callId = (msg as any).callId || '';
+            key = `assistant-${callId}`;
+          }
+          
           const content = this.extractMessageContent(msg);
-          messages.push({
-            role: msg.role || '',
-            content,
-            timestamp: msg.timestamp || '',
-          });
+          if (!content) continue;
+
+          if (messageMap.has(key)) {
+            // Append content to existing message
+            const existing = messageMap.get(key)!;
+            existing.content += content;
+          } else {
+            // For system messages, display as assistant role
+            // 对于 system 消息，显示为 assistant 角色
+            const displayRole = role === 'system' ? 'assistant' : role;
+            messageMap.set(key, { role: displayRole, content, timestamp });
+            messageOrder.push(key);
+          }
         }
       }
 
-      return messages;
+      // Return messages in order
+      return messageOrder.map(key => messageMap.get(key)!);
     } catch (e) {
       if (e instanceof SDKException) throw e;
       if (this.isThreadNotFoundError(e as Error)) {
@@ -338,12 +409,36 @@ export class AgentClient {
   }
 
   private extractMessageContent(msg: Record<string, unknown>): string {
+    // 1. Try to extract from contents (streaming text chunks)
+    // 尝试从 contents 提取（流式文本块）
     const contents = msg.contents as Array<Record<string, unknown>> | undefined;
-    if (!contents) return '';
+    if (contents) {
+      const textContent = contents
+        .filter((c) => c.type === 'text' && c.value)
+        .map((c) => c.value as string)
+        .join('');
+      if (textContent) return textContent;
+    }
 
-    return contents
-      .filter((c) => c.type === 'text' && c.value)
-      .map((c) => c.value as string)
-      .join('');
+    // 2. Try to extract from artifacts (final result)
+    // 尝试从 artifacts 提取（最终结果）
+    const artifacts = msg.artifacts as Array<Record<string, unknown>> | undefined;
+    if (artifacts) {
+      for (const artifact of artifacts) {
+        // Look for Result artifact with text parts
+        // 查找包含文本的 Result artifact
+        if (artifact.name === 'Result') {
+          const parts = artifact.parts as Array<Record<string, unknown>> | undefined;
+          if (parts) {
+            const textParts = parts
+              .filter((p) => p.kind === 'text' && p.text)
+              .map((p) => p.text as string);
+            if (textParts.length > 0) return textParts.join('');
+          }
+        }
+      }
+    }
+
+    return '';
   }
 }

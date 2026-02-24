@@ -55,15 +55,25 @@ async function main() {
 
         // Send message
         printer.reset();
-        for await (const event of client.chat(threadId, input)) {
-          if (event.error) {
-            console.log(`❌ 错误: ${event.error.message}`);
-            continue;
-          }
+        try {
+          for await (const event of client.chat(threadId, input)) {
+            if (event.error) {
+              console.log(`❌ 错误: ${event.error.message}`);
+              if (event.error.cause) {
+                console.log(`   原因: ${(event.error.cause as Error).message || event.error.cause}`);
+              }
+              continue;
+            }
 
-          const text = printer.processEvent(event);
-          if (text) {
-            process.stdout.write(text);
+            const text = printer.processEvent(event);
+            if (text) {
+              process.stdout.write(text);
+            }
+          }
+        } catch (chatError) {
+          console.log(`❌ 对话异常: ${(chatError as Error).message}`);
+          if ((chatError as Error).stack) {
+            console.log((chatError as Error).stack);
           }
         }
 

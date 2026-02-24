@@ -289,19 +289,75 @@ class AgentClient:
                     ErrorCode.PARSE_ERROR, "无效响应: 响应体为空"
                 ).with_context("threadId", thread_id).with_suggestion("请稍后重试")
 
-            messages = []
+            # Strategy: prefer system Result over assistant streaming messages
+            # 策略：优先使用 system Result，而不是 assistant 流式消息
+            message_map: Dict[str, Dict[str, str]] = {}
+            message_order: List[str] = []
+            
+            # Check if any system Result exists
+            # 检查是否存在 system Result
+            has_system_result = False
             if response.body.data:
                 for data in response.body.data:
                     if data.messages:
                         for msg in data.messages:
-                            content = self._extract_message_content(msg)
-                            messages.append(ThreadMessage(
-                                role=msg.role or "",
-                                content=content,
-                                timestamp=msg.timestamp or "",
-                            ))
+                            if msg.role == 'system':
+                                artifacts = getattr(msg, 'artifacts', None)
+                                if artifacts:
+                                    for artifact in artifacts:
+                                        if isinstance(artifact, dict) and artifact.get('name') == 'Result':
+                                            has_system_result = True
+                                            break
+                            if has_system_result:
+                                break
+                    if has_system_result:
+                        break
 
-            return messages
+            # Process messages
+            if response.body.data:
+                for data in response.body.data:
+                    if data.messages:
+                        for msg in data.messages:
+                            role = msg.role or ''
+                            timestamp = msg.timestamp or ''
+                            
+                            # Skip assistant streaming messages if system Result exists
+                            if role == 'assistant' and has_system_result:
+                                continue
+                            
+                            # Use different key strategy based on role
+                            if role == 'user':
+                                key = f"user-{timestamp}"
+                            elif role == 'system':
+                                key = f"system-{timestamp}"
+                            else:
+                                call_id = getattr(msg, 'call_id', '') or ''
+                                key = f"assistant-{call_id}"
+                            
+                            content = self._extract_message_content(msg)
+                            if not content:
+                                continue
+
+                            if key in message_map:
+                                message_map[key]['content'] += content
+                            else:
+                                # For system messages, display as assistant role
+                                display_role = 'assistant' if role == 'system' else role
+                                message_map[key] = {
+                                    'role': display_role,
+                                    'content': content,
+                                    'timestamp': timestamp,
+                                }
+                                message_order.append(key)
+
+            return [
+                ThreadMessage(
+                    role=message_map[key]['role'],
+                    content=message_map[key]['content'],
+                    timestamp=message_map[key]['timestamp'],
+                )
+                for key in message_order
+            ]
         except SDKException:
             raise
         except Exception as e:
@@ -331,12 +387,28 @@ class AgentClient:
         return any(p in err_str for p in patterns)
 
     def _extract_message_content(self, msg: Any) -> str:
-        if not msg or not hasattr(msg, "contents") or not msg.contents:
-            return ""
+        # 1. Try to extract from contents (streaming text chunks)
+        # 尝试从 contents 提取（流式文本块）
+        if msg and hasattr(msg, "contents") and msg.contents:
+            result = []
+            for content in msg.contents:
+                if isinstance(content, dict):
+                    if content.get("type") == "text" and content.get("value"):
+                        result.append(content["value"])
+            if result:
+                return "".join(result)
 
-        result = []
-        for content in msg.contents:
-            if isinstance(content, dict):
-                if content.get("type") == "text" and content.get("value"):
-                    result.append(content["value"])
-        return "".join(result)
+        # 2. Try to extract from artifacts (final result)
+        # 尝试从 artifacts 提取（最终结果）
+        if msg and hasattr(msg, "artifacts") and msg.artifacts:
+            for artifact in msg.artifacts:
+                if isinstance(artifact, dict) and artifact.get("name") == "Result":
+                    parts = artifact.get("parts", [])
+                    text_parts = []
+                    for part in parts:
+                        if isinstance(part, dict) and part.get("kind") == "text" and part.get("text"):
+                            text_parts.append(part["text"])
+                    if text_parts:
+                        return "".join(text_parts)
+
+        return ""
