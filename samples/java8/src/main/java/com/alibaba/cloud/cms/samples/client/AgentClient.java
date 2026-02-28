@@ -104,7 +104,10 @@ public class AgentClient {
     /**
      * 开始对话（支持自定义 variables）
      * Start chat with custom variables
-     * 注意：Java SDK 不支持 SSE 流式响应，使用普通请求
+     *
+     * Java SDK 的 createChat() 方法将 bodyType 设为 "json"，但 API 实际返回 SSE 流。
+     * tea-openapi 运行时尝试用 readAsJSON 解析 SSE 流会抛出 TeaException。
+     * 我们从异常信息中提取 SSE data 行，逐条解析为 JSON 事件。
      */
     public BlockingQueue<ChatEvent> chatWithVariables(String threadId, String message, Map<String, Object> variables) {
         BlockingQueue<ChatEvent> events = new LinkedBlockingQueue<ChatEvent>();
@@ -135,13 +138,29 @@ public class AgentClient {
                     request.setMessages(Collections.singletonList(msg));
                     request.setVariables(finalVariables);
 
-                    CreateChatResponse response = client.createChat(request);
+                    com.aliyun.teautil.models.RuntimeOptions runtime = new com.aliyun.teautil.models.RuntimeOptions();
+                    runtime.setConnectTimeout(30000);
+                    runtime.setReadTimeout(300000);
 
-                    if (response.getBody() != null) {
-                        String rawJson = objectMapper.writeValueAsString(response.getBody());
-                        JsonNode jsonNode = objectMapper.readTree(rawJson);
-                        ChatEvent event = ChatEvent.fromResponse(jsonNode, rawJson, 200);
-                        events.put(event);
+                    try {
+                        // Try normal request first — will succeed if API returns JSON
+                        CreateChatResponse response = client.createChatWithOptions(request, new HashMap<String, String>(), runtime);
+
+                        if (response.getBody() != null) {
+                            String rawJson = objectMapper.writeValueAsString(response.getBody());
+                            JsonNode jsonNode = objectMapper.readTree(rawJson);
+                            ChatEvent event = ChatEvent.fromResponse(jsonNode, rawJson, 200);
+                            events.put(event);
+                        }
+                    } catch (Exception ex) {
+                        // API returns SSE stream, tea-openapi fails to parse as JSON.
+                        // The SSE data is in the exception message (or its cause's message).
+                        String sseData = extractSSEFromException(ex);
+                        if (sseData != null) {
+                            parseSSEEvents(sseData, events);
+                        } else {
+                            throw ex;
+                        }
                     }
 
                     events.put(ChatEvent.done());
@@ -159,6 +178,52 @@ public class AgentClient {
         });
 
         return events;
+    }
+
+    /**
+     * 从 SSE 文本中解析事件
+     * Parse SSE events from raw SSE text (extracted from exception message)
+     */
+    private void parseSSEEvents(String sseText, BlockingQueue<ChatEvent> events) throws InterruptedException {
+        String[] lines = sseText.split("\n");
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("data:")) {
+                String jsonStr = trimmed.substring(5).trim();
+                if (jsonStr.isEmpty() || "[DONE]".equals(jsonStr)) {
+                    continue;
+                }
+                try {
+                    JsonNode jsonNode = objectMapper.readTree(jsonStr);
+                    ChatEvent event = ChatEvent.fromResponse(jsonNode, jsonStr, 200);
+                    events.put(event);
+                } catch (Exception ignored) {
+                    // Skip malformed JSON lines
+                }
+            }
+        }
+    }
+
+    /**
+     * 从异常链中提取 SSE 数据
+     * Extract SSE data from exception chain (TeaException, TeaUnretryableException, etc.)
+     */
+    private String extractSSEFromException(Exception ex) {
+        // Check the exception itself
+        String msg = ex.getMessage();
+        if (msg != null && msg.contains("data:")) {
+            return msg;
+        }
+        // Check the cause chain
+        Throwable cause = ex.getCause();
+        while (cause != null) {
+            String causeMsg = cause.getMessage();
+            if (causeMsg != null && causeMsg.contains("data:")) {
+                return causeMsg;
+            }
+            cause = cause.getCause();
+        }
+        return null;
     }
 
     /**

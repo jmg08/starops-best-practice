@@ -1,9 +1,10 @@
 # CMS SDK Samples | CMS SDK 示例
 
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](samples/golang/)
-[![Java](https://img.shields.io/badge/Java-Planned-orange?style=flat&logo=openjdk)](samples/java/)
-[![Python](https://img.shields.io/badge/Python-Planned-3776AB?style=flat&logo=python)](samples/python/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Planned-3178C6?style=flat&logo=typescript)](samples/typescript/)
+[![Java](https://img.shields.io/badge/Java-11+-orange?style=flat&logo=openjdk)](samples/java/)
+[![Java8](https://img.shields.io/badge/Java-8+-orange?style=flat&logo=openjdk)](samples/java8/)
+[![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=flat&logo=python)](samples/python/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat&logo=typescript)](samples/typescript/)
 
 Production-ready sample programs for interacting with Alibaba Cloud CMS (Cloud Monitor Service) digital employees across multiple programming languages.
 
@@ -11,84 +12,27 @@ Production-ready sample programs for interacting with Alibaba Cloud CMS (Cloud M
 
 ---
 
-## Table of Contents | 目录
-
-- [Overview | 概述](#overview--概述)
-- [Language Support | 语言支持](#language-support--语言支持)
-- [Quick Start | 快速开始](#quick-start--快速开始)
-- [Project Structure | 项目结构](#project-structure--项目结构)
-- [Features | 功能特性](#features--功能特性)
-- [Documentation | 文档](#documentation--文档)
-- [Contributing | 贡献指南](#contributing--贡献指南)
-- [License | 许可证](#license--许可证)
-
----
-
-## Overview | 概述
-
-### English
-
-The CMS SDK Samples project provides comprehensive, production-ready examples for interacting with Alibaba Cloud CMS digital employees. These samples demonstrate best practices for:
-
-- **Multi-turn Conversations**: Maintain context across multiple conversation rounds
-- **Interactive Event Handling**: Handle user confirmations, selections, and inputs
-- **Thread Management**: Create, list, retrieve, and delete conversation threads
-- **Timeout Control**: Configure and handle request timeouts
-- **Structured Logging**: Debug and monitor SDK behavior with JSON logs
-- **Response Structure Management**: Automatically discover and document response formats
-
-### 中文
-
-CMS SDK 示例项目为阿里云 CMS 数字员工提供全面的、生产就绪的交互示例。这些示例展示了以下最佳实践：
-
-- **多轮对话**：在多轮对话中保持上下文
-- **交互事件处理**：处理用户确认、选择和输入
-- **会话管理**：创建、列出、获取和删除对话会话
-- **超时控制**：配置和处理请求超时
-- **结构化日志**：使用 JSON 日志调试和监控 SDK 行为
-- **响应结构管理**：自动发现和记录响应格式
-
----
-
 ## Language Support | 语言支持
 
-We are committed to providing SDK samples in multiple programming languages to serve developers across different technology stacks.
+| Language | Status | Directory | Min Version |
+|----------|--------|-----------|-------------|
+| **Go** | ✅ Complete | [`samples/golang/`](samples/golang/) | Go 1.21+ |
+| **Java** | ✅ Complete | [`samples/java/`](samples/java/) | Java 11+ |
+| **Java 8** | ✅ Complete | [`samples/java8/`](samples/java8/) | Java 8+ |
+| **Python** | ✅ Complete | [`samples/python/`](samples/python/) | Python 3.8+ |
+| **TypeScript** | ✅ Complete | [`samples/typescript/`](samples/typescript/) | Node 18+ |
 
-我们致力于提供多种编程语言的 SDK 示例，以服务于不同技术栈的开发者。
+| 语言 | 状态 | 目录 | 最低版本 |
+|------|------|------|----------|
+| **Go** | ✅ 已完成 | [`samples/golang/`](samples/golang/) | Go 1.21+ |
+| **Java** | ✅ 已完成 | [`samples/java/`](samples/java/) | Java 11+ |
+| **Java 8** | ✅ 已完成 | [`samples/java8/`](samples/java8/) | Java 8+ |
+| **Python** | ✅ 已完成 | [`samples/python/`](samples/python/) | Python 3.8+ |
+| **TypeScript** | ✅ 已完成 | [`samples/typescript/`](samples/typescript/) | Node 18+ |
 
-### Current Status | 当前状态
-
-| Language | Status | Directory | Documentation |
-|----------|--------|-----------|---------------|
-| **Go** | ✅ Complete | [`samples/golang/`](samples/golang/) | [README](samples/golang/README.md) \| [中文](samples/golang/README_zh.md) |
-| **Java** | 🔜 Planned (Q2 2025) | `samples/java/` | Coming Soon |
-| **Python** | 🔜 Planned (Q3 2025) | `samples/python/` | Coming Soon |
-| **TypeScript** | 🔜 Planned (Q4 2025) | `samples/typescript/` | Coming Soon |
-
-| 语言 | 状态 | 目录 | 文档 |
-|------|------|------|------|
-| **Go** | ✅ 已完成 | [`samples/golang/`](samples/golang/) | [English](samples/golang/README.md) \| [中文](samples/golang/README_zh.md) |
-| **Java** | 🔜 计划中 (2025 Q2) | `samples/java/` | 即将推出 |
-| **Python** | 🔜 计划中 (2025 Q3) | `samples/python/` | 即将推出 |
-| **TypeScript** | 🔜 计划中 (2025 Q4) | `samples/typescript/` | 即将推出 |
-
-### Language Roadmap | 语言路线图
-
-For detailed information about our multi-language support plan, including:
-- Timeline and milestones
-- Common interface specifications
-- Implementation guidelines
-- Quality standards
-
-Please see the [Language Support Roadmap](docs/LANGUAGE_ROADMAP.md).
-
-有关多语言支持计划的详细信息，包括：
-- 时间线和里程碑
-- 通用接口规范
-- 实现指南
-- 质量标准
-
-请参阅[语言支持路线图](docs/LANGUAGE_ROADMAP.md)。
+> **Note**: The Java 8 variant (`samples/java8/`) is a syntax-compatible fork of the Java 11 project for environments restricted to Java 8. Functionality is identical.
+>
+> **说明**: Java 8 版本（`samples/java8/`）是 Java 11 项目的语法兼容分支，适用于只能使用 Java 8 的环境。功能完全一致。
 
 ---
 
@@ -98,50 +42,117 @@ Please see the [Language Support Roadmap](docs/LANGUAGE_ROADMAP.md).
 
 - Alibaba Cloud account with CMS access | 具有 CMS 访问权限的阿里云账号
 - Access Key ID and Secret | Access Key ID 和 Secret
-- Workspace ID | 工作空间 ID
 
-### Go (Available Now | 现已可用)
+### Environment Variables | 环境变量
+
+All language samples use the same environment variables (via `.env` file):
+
+所有语言示例使用相同的环境变量（通过 `.env` 文件）：
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VIBEOPS_WORKSPACE` | ❌ | Workspace ID（工作空间 ID） |
+| `VIBEOPS_ENDPOINT` | ✅ | API endpoint（API 端点） |
+| `VIBEOPS_REGION` | ❌ | Region, default `cn-hangzhou`（地域） |
+| `ALIBABA_CLOUD_ACCESS_KEY_ID` | ✅ | Access Key ID |
+| `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | ✅ | Access Key Secret |
+| `VIBEOPS_EMPLOYEE_NAME` | ❌ | Employee name, default `default`（数字员工名称） |
+
+### Go
 
 ```bash
-# Clone the repository | 克隆仓库
-git clone <repository-url>
 cd samples/golang
-
-# Set environment variables | 设置环境变量
-export VIBEOPS_WORKSPACE="your-workspace"
-export VIBEOPS_ENDPOINT="cms.cn-hongkong.aliyuncs.com"
-export ALIBABA_CLOUD_ACCESS_KEY_ID="your-access-key-id"
-export ALIBABA_CLOUD_ACCESS_KEY_SECRET="your-access-key-secret"
-
-# Run the interactive chat example | 运行交互式对话示例
+cp .env.example .env  # edit with your credentials
 go run ./cmd/chat/
 ```
 
-For more Go examples, see the [Go README](samples/golang/README.md).
-
-更多 Go 示例，请参阅 [Go README](samples/golang/README.md)。
-
-### Java (Coming Q2 2025 | 2025 Q2 推出)
+### Java (11+)
 
 ```bash
 cd samples/java
-mvn compile exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.Chat"
+cp .env.example .env  # edit with your credentials
+mvn compile
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.Chat"
 ```
 
-### Python (Coming Q3 2025 | 2025 Q3 推出)
+### Java 8
+
+```bash
+cd samples/java8
+cp .env.example .env  # edit with your credentials
+mvn compile
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.Chat"
+```
+
+### Python
 
 ```bash
 cd samples/python
+python -m venv .venv && source .venv/bin/activate
 pip install -e .
+cp .env.example .env  # edit with your credentials
 python -m cms_sdk_samples.examples.chat
 ```
 
-### TypeScript (Coming Q4 2025 | 2025 Q4 推出)
+### TypeScript
 
 ```bash
 cd samples/typescript
 npm install
-npm run chat
+cp .env.example .env  # edit with your credentials
+npx tsx src/examples/chat.ts
+```
+
+---
+
+## Sample Programs | 示例程序
+
+All languages implement the same set of examples:
+
+所有语言实现相同的示例集：
+
+| Sample | Description | 描述 |
+|--------|-------------|------|
+| `chat` | Interactive multi-turn chat | 交互式多轮对话 |
+| `chat-from-file` | Load request from JSON file | 从 JSON 文件加载请求 |
+| `thread-manager` | List/get/delete conversation threads | 会话管理（列出/查看/删除） |
+
+### chat-from-file
+
+Supports loading request parameters from shared JSON files in `requests/cms/`:
+
+支持从 `requests/cms/` 下的共享 JSON 文件加载请求参数：
+
+```bash
+# Go
+go run ./cmd/chat-from-file/ -file ../../requests/cms/entity.json
+
+# Java / Java 8
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.ChatFromFile" \
+    -Dexec.args="-file ../../requests/cms/entity.json"
+
+# Python
+python -m cms_sdk_samples.examples.chat_from_file -file ../../requests/cms/entity.json
+
+# TypeScript
+npx tsx src/examples/chat-from-file.ts -file ../../requests/cms/entity.json
+```
+
+### thread-manager
+
+```bash
+# Go
+go run ./cmd/thread-manager/ list
+
+# Java / Java 8
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.ThreadManager" \
+    -Dexec.args="list"
+
+# Python
+python -m cms_sdk_samples.examples.thread_manager list
+
+# TypeScript
+npx tsx src/examples/thread-manager.ts list
 ```
 
 ---
@@ -150,99 +161,56 @@ npm run chat
 
 ```
 .
-├── README.md                          # This file | 本文件
-├── .env.example                       # Environment variables template | 环境变量模板
+├── README.md
+├── .env.example
 ├── requests/                          # Shared request JSON files | 共享请求 JSON 文件
-│   └── cms/                           # CMS-specific requests | CMS 特定请求
-│       ├── entity.json                # Entity query example | 实体查询示例
-│       ├── sls_query.json             # SLS query example | SLS 查询示例
-│       └── text_to_sql.json           # Text-to-SQL example | Text-to-SQL 示例
+│   └── cms/
+│       ├── entity.json                # Entity query | 实体查询
+│       ├── sls_chat.json              # SLS log query (sql_generation) | SLS 日志查询
+│       ├── sql_generation.json        # SQL generation | SQL 生成
+│       ├── general_chat.json          # General chat | 通用对话
+│       ├── metric_query.json          # Metric query | 指标查询
+│       └── data_agent.json            # Data agent | 数据 Agent
 │
-└── samples/                           # Language-specific implementations | 语言特定实现
-    ├── golang/                        # ✅ Go implementation (complete) | Go 实现（已完成）
-    │   ├── cmd/                       # Sample programs | 示例程序
-    │   ├── internal/                  # Internal packages | 内部包
-    │   ├── types/                     # Type definitions | 类型定义
-    │   ├── docs/                      # Documentation | 文档
-    │   │   └── LANGUAGE_ROADMAP.md    # Multi-language roadmap | 多语言路线图
-    │   ├── README.md                  # English documentation | 英文文档
-    │   └── README_zh.md               # Chinese documentation | 中文文档
-    │
-    ├── java/                          # 🔜 Java implementation (planned) | Java 实现（计划中）
-    ├── python/                        # 🔜 Python implementation (planned) | Python 实现（计划中）
-    └── typescript/                    # 🔜 TypeScript implementation (planned) | TypeScript 实现（计划中）
+└── samples/
+    ├── golang/                        # Go (1.21+)
+    ├── java/                          # Java (11+)
+    ├── java8/                         # Java (8+) - syntax-compatible fork
+    ├── python/                        # Python (3.8+)
+    └── typescript/                    # TypeScript (Node 18+)
 ```
 
 ---
 
-## Features | 功能特性
+## Java vs Java 8 | Java 与 Java 8 的区别
 
-All language implementations will include the following sample programs:
+The `java8` project is a syntax-only adaptation of the `java` project. Key differences:
 
-所有语言实现将包含以下示例程序：
+`java8` 项目是 `java` 项目的纯语法适配版本。主要区别：
 
-| Sample | Description | 示例 | 描述 |
-|--------|-------------|------|------|
-| `chat` | Basic interactive chat | `chat` | 基础交互式对话 |
-| `chat-simple` | Simple output mode (text only) | `chat-simple` | 简洁输出模式（仅文本） |
-| `chat-timeout` | Timeout control | `chat-timeout` | 超时控制 |
-| `chat-interactive` | Interactive event handling | `chat-interactive` | 交互事件处理 |
-| `chat-multi-turn` | Multi-turn conversation | `chat-multi-turn` | 多轮对话 |
-| `thread-manager` | Thread management CLI | `thread-manager` | 会话管理命令行工具 |
-| `chat-from-file` | Load requests from JSON | `chat-from-file` | 从 JSON 文件加载请求 |
-| `chat-with-time` | Time parameter example | `chat-with-time` | 时间参数示例 |
+| Feature | Java (11+) | Java 8 |
+|---------|-----------|--------|
+| `var` keyword | ✅ | ❌ → explicit types |
+| `String.repeat()` | ✅ | ❌ → `repeatStr()` helper |
+| `Map.putIfAbsent()` | ✅ | ✅ → `containsKey()` + `put()` |
+| dotenv-java | 3.0.0 | 2.3.2 |
+| mockito | 5.5.0 | 4.11.0 |
+| Lambda / Runnable | Lambda | Anonymous `Runnable` |
+
+> **Note on Java SDK**: The Alibaba Cloud CMS Java SDK (`cms20240330:6.0.1`) uses `createChat()` which does not support SSE streaming. The API returns SSE stream data, causing a `convert to JSON` error. The request still succeeds — the full response is in the error message. Python, Go, and TypeScript all support SSE streaming natively.
+>
+> **Java SDK 说明**: 阿里云 CMS Java SDK 使用 `createChat()` 不支持 SSE 流式响应。API 返回 SSE 流数据会导致 `convert to JSON` 错误。请求本身是成功的，完整响应在错误信息中。Python、Go、TypeScript 均原生支持 SSE 流式输出。
 
 ---
 
 ## Documentation | 文档
 
-### Language-Specific Documentation | 语言特定文档
-
-| Language | English | 中文 |
-|----------|---------|------|
-| Go | [README.md](samples/golang/README.md) | [README_zh.md](samples/golang/README_zh.md) |
-| Java | Coming Soon | 即将推出 |
-| Python | Coming Soon | 即将推出 |
-| TypeScript | Coming Soon | 即将推出 |
-
-### Additional Resources | 其他资源
-
-- [Language Support Roadmap | 语言支持路线图](docs/LANGUAGE_ROADMAP.md)
-- [Alibaba Cloud CMS Documentation | 阿里云 CMS 文档](https://help.aliyun.com/product/28572.html)
-
----
-
-## Contributing | 贡献指南
-
-We welcome contributions to extend language support and improve existing implementations!
-
-我们欢迎贡献以扩展语言支持和改进现有实现！
-
-### How to Contribute | 如何贡献
-
-1. **Fork the repository** | 复刻仓库
-2. **Create a feature branch** | 创建功能分支
-3. **Follow the [interface specification](docs/LANGUAGE_ROADMAP.md#common-interface-specification--通用接口规范)** | 遵循[接口规范](docs/LANGUAGE_ROADMAP.md#common-interface-specification--通用接口规范)
-4. **Write tests (≥80% coverage)** | 编写测试（≥80% 覆盖率）
-5. **Update documentation in both languages** | 更新双语文档
-6. **Submit a pull request** | 提交拉取请求
-
-### Review Checklist | 审查清单
-
-- [ ] Follows common interface specification | 遵循通用接口规范
-- [ ] All sample programs implemented | 所有示例程序已实现
-- [ ] Unit tests with ≥80% coverage | 单元测试覆盖率 ≥80%
-- [ ] Documentation in both languages | 双语文档
-- [ ] No breaking changes to existing APIs | 无破坏性 API 变更
+- [Go README](samples/golang/README.md) | [Go 中文文档](samples/golang/README_zh.md)
+- [Java README](samples/java/README.md) | [Java 中文文档](samples/java/README_zh.md)
+- [Language Roadmap | 语言路线图](docs/LANGUAGE_ROADMAP.md)
 
 ---
 
 ## License | 许可证
 
-This project is licensed under the Apache License 2.0.
-
-本项目采用 Apache License 2.0 许可证。
-
----
-
-*Last Updated: 2024-12 | 最后更新：2024年12月*
+Apache License 2.0
