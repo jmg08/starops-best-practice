@@ -25,6 +25,8 @@ import com.aliyun.cms20240330.models.GetThreadResponse;
 import com.aliyun.cms20240330.models.ListThreadsRequest;
 import com.aliyun.cms20240330.models.ListThreadsResponse;
 import com.aliyun.cms20240330.models.ListThreadsResponseBody;
+import com.aliyun.teaopenapi.models.OpenApiRequest;
+import com.aliyun.teaopenapi.models.Params;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -105,9 +107,8 @@ public class AgentClient implements AutoCloseable {
      * 开始对话（支持自定义 variables）
      * Start chat with custom variables
      *
-     * Java SDK 的 createChat() 方法将 bodyType 设为 "json"，但 API 实际返回 SSE 流。
-     * tea-openapi 运行时尝试用 readAsJSON 解析 SSE 流会抛出 TeaException。
-     * 我们从异常信息中提取 SSE data 行，逐条解析为 JSON 事件。
+     * 通过 callApi 以 bodyType="string" 发送请求，直接读取 SSE 流文本，避免 JSON 解析错误。
+     * Uses callApi with bodyType="string" to read the raw SSE stream, avoiding JSON parse errors.
      */
     public BlockingQueue<ChatEvent> chatWithVariables(String threadId, String message, Map<String, Object> variables) {
         BlockingQueue<ChatEvent> events = new LinkedBlockingQueue<ChatEvent>();
@@ -123,44 +124,50 @@ public class AgentClient implements AutoCloseable {
             @Override
             public void run() {
                 try {
-                    CreateChatRequest.CreateChatRequestMessagesContents content = new CreateChatRequest.CreateChatRequestMessagesContents();
-                    content.setType("text");
-                    content.setValue(message);
+                    // Build request body
+                    Map<String, Object> body = new LinkedHashMap<String, Object>();
+                    body.put("action", "create");
+                    body.put("threadId", threadId);
+                    body.put("digitalEmployeeName", config.getEmployeeName());
+                    body.put("variables", finalVariables);
 
-                    CreateChatRequest.CreateChatRequestMessages msg = new CreateChatRequest.CreateChatRequestMessages();
-                    msg.setRole("user");
-                    msg.setContents(Collections.singletonList(content));
+                    Map<String, Object> contentMap = new LinkedHashMap<String, Object>();
+                    contentMap.put("type", "text");
+                    contentMap.put("value", message);
 
-                    CreateChatRequest request = new CreateChatRequest();
-                    request.setAction("create");
-                    request.setThreadId(threadId);
-                    request.setDigitalEmployeeName(config.getEmployeeName());
-                    request.setMessages(Collections.singletonList(msg));
-                    request.setVariables(finalVariables);
+                    Map<String, Object> msgMap = new LinkedHashMap<String, Object>();
+                    msgMap.put("role", "user");
+                    msgMap.put("contents", Collections.singletonList(contentMap));
+
+                    body.put("messages", Collections.singletonList(msgMap));
+
+                    Map<String, Object> reqMap = new HashMap<String, Object>();
+                    reqMap.put("headers", new HashMap<String, String>());
+                    reqMap.put("body", com.aliyun.openapiutil.Client.parseToMap(body));
+                    OpenApiRequest openApiRequest = OpenApiRequest.build(reqMap);
+
+                    // bodyType="string" 让 tea-openapi 用 readAsString 读取响应，不做 JSON 解析
+                    Map<String, Object> paramsMap = new HashMap<String, Object>();
+                    paramsMap.put("action", "CreateChat");
+                    paramsMap.put("version", "2024-03-30");
+                    paramsMap.put("protocol", "HTTPS");
+                    paramsMap.put("pathname", "/chat");
+                    paramsMap.put("method", "POST");
+                    paramsMap.put("authType", "AK");
+                    paramsMap.put("style", "ROA");
+                    paramsMap.put("reqBodyType", "json");
+                    paramsMap.put("bodyType", "string");
+                    Params params = Params.build(paramsMap);
 
                     com.aliyun.teautil.models.RuntimeOptions runtime = new com.aliyun.teautil.models.RuntimeOptions();
                     runtime.setConnectTimeout(30000);
                     runtime.setReadTimeout(300000);
 
-                    try {
-                        // Try normal request first — will succeed if API returns JSON
-                        CreateChatResponse response = client.createChatWithOptions(request, new HashMap<String, String>(), runtime);
+                    Map<String, ?> result = client.callApi(params, openApiRequest, runtime);
+                    String sseText = (String) result.get("body");
 
-                        if (response.getBody() != null) {
-                            String rawJson = objectMapper.writeValueAsString(response.getBody());
-                            JsonNode jsonNode = objectMapper.readTree(rawJson);
-                            ChatEvent event = ChatEvent.fromResponse(jsonNode, rawJson, 200);
-                            events.put(event);
-                        }
-                    } catch (Exception ex) {
-                        // API returns SSE stream, tea-openapi fails to parse as JSON.
-                        // The SSE data is in the exception message (or its cause's message).
-                        String sseData = extractSSEFromException(ex);
-                        if (sseData != null) {
-                            parseSSEEvents(sseData, events);
-                        } else {
-                            throw ex;
-                        }
+                    if (sseText != null && !sseText.isEmpty()) {
+                        parseSSEEvents(sseText, events);
                     }
 
                     events.put(ChatEvent.done());
@@ -182,7 +189,7 @@ public class AgentClient implements AutoCloseable {
 
     /**
      * 从 SSE 文本中解析事件
-     * Parse SSE events from raw SSE text (extracted from exception message)
+     * Parse SSE events from raw SSE text
      */
     private void parseSSEEvents(String sseText, BlockingQueue<ChatEvent> events) throws InterruptedException {
         String[] lines = sseText.split("\n");
@@ -202,28 +209,6 @@ public class AgentClient implements AutoCloseable {
                 }
             }
         }
-    }
-
-    /**
-     * 从异常链中提取 SSE 数据
-     * Extract SSE data from exception chain (TeaException, TeaUnretryableException, etc.)
-     */
-    private String extractSSEFromException(Exception ex) {
-        // Check the exception itself
-        String msg = ex.getMessage();
-        if (msg != null && msg.contains("data:")) {
-            return msg;
-        }
-        // Check the cause chain
-        Throwable cause = ex.getCause();
-        while (cause != null) {
-            String causeMsg = cause.getMessage();
-            if (causeMsg != null && causeMsg.contains("data:")) {
-                return causeMsg;
-            }
-            cause = cause.getCause();
-        }
-        return null;
     }
 
     /**
