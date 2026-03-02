@@ -687,7 +687,7 @@ func TestExtractMessageContent(t *testing.T) {
 		{
 			name: "message with text type content",
 			msg: &cms.GetThreadDataResponseBodyDataMessages{
-				Contents: []map[string]interface{}{
+				Contents: []map[string]any{
 					{"type": "text", "value": "Hello, world!"},
 				},
 			},
@@ -696,7 +696,7 @@ func TestExtractMessageContent(t *testing.T) {
 		{
 			name: "message with multiple text contents",
 			msg: &cms.GetThreadDataResponseBodyDataMessages{
-				Contents: []map[string]interface{}{
+				Contents: []map[string]any{
 					{"type": "text", "value": "First"},
 					{"type": "text", "value": "Second"},
 				},
@@ -706,7 +706,7 @@ func TestExtractMessageContent(t *testing.T) {
 		{
 			name: "message with value only (no type)",
 			msg: &cms.GetThreadDataResponseBodyDataMessages{
-				Contents: []map[string]interface{}{
+				Contents: []map[string]any{
 					{"value": "Direct value"},
 				},
 			},
@@ -715,7 +715,7 @@ func TestExtractMessageContent(t *testing.T) {
 		{
 			name: "message with text field (no type)",
 			msg: &cms.GetThreadDataResponseBodyDataMessages{
-				Contents: []map[string]interface{}{
+				Contents: []map[string]any{
 					{"text": "Text field value"},
 				},
 			},
@@ -731,7 +731,7 @@ func TestExtractMessageContent(t *testing.T) {
 		{
 			name: "empty contents with Detail",
 			msg: &cms.GetThreadDataResponseBodyDataMessages{
-				Contents: []map[string]interface{}{},
+				Contents: []map[string]any{},
 				Detail:   dara.String("Fallback detail"),
 			},
 			expected: "Fallback detail",
@@ -739,7 +739,7 @@ func TestExtractMessageContent(t *testing.T) {
 		{
 			name: "nil content in array",
 			msg: &cms.GetThreadDataResponseBodyDataMessages{
-				Contents: []map[string]interface{}{
+				Contents: []map[string]any{
 					nil,
 					{"type": "text", "value": "Valid content"},
 				},

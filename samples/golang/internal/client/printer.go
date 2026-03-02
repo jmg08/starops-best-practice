@@ -186,7 +186,7 @@ func (p *EventPrinter) printEventPayload(evt *types.ItemEvent) {
 
 // PrettyPrintJSON 格式化JSON输出
 func PrettyPrintJSON(jsonStr string) (string, error) {
-	var data interface{}
+	var data any
 	if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
 		return "", err
 	}

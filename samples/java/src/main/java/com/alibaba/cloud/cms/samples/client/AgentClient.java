@@ -31,7 +31,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * Agent 客户端
  * Agent client for CMS digital employee interactions
  */
-public class AgentClient {
+public class AgentClient implements AutoCloseable {
     private final Client client;
     private final Config config;
     private final ObjectMapper objectMapper;
@@ -546,6 +546,11 @@ public class AgentClient {
 
     public void shutdown() {
         executor.shutdown();
+    }
+
+    @Override
+    public void close() {
+        shutdown();
     }
 
     /**

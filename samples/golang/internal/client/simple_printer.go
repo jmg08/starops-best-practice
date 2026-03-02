@@ -68,7 +68,7 @@ func (p *SimplePrinter) Reset() {
 }
 
 // hasNonTextEvents 检查是否包含非文本事件（如 thinking、error 等）
-func hasNonTextEvents(events []map[string]interface{}) bool {
+func hasNonTextEvents(events []map[string]any) bool {
 	for _, event := range events {
 		if event == nil {
 			continue
@@ -89,7 +89,7 @@ func hasNonTextEvents(events []map[string]interface{}) bool {
 // extractTextFromContents 从内容列表中提取文本
 // 按顺序连接所有文本类型的内容
 // Validates: Requirement 3.4 - concatenate content items in order
-func extractTextFromContents(contents []map[string]interface{}) string {
+func extractTextFromContents(contents []map[string]any) string {
 	var result strings.Builder
 
 	for _, content := range contents {
@@ -115,7 +115,7 @@ func extractTextFromContents(contents []map[string]interface{}) string {
 // extractTextFromArtifacts 从 artifacts 中提取文本
 // artifacts 是 Google A2A 协议的产物格式
 // 格式: [{"parts": [{"kind": "text", "text": "..."}]}]
-func extractTextFromArtifacts(artifacts []map[string]interface{}) string {
+func extractTextFromArtifacts(artifacts []map[string]any) string {
 	var result strings.Builder
 
 	for _, artifact := range artifacts {
@@ -124,13 +124,13 @@ func extractTextFromArtifacts(artifacts []map[string]interface{}) string {
 		}
 
 		// 获取 parts 数组
-		parts, ok := artifact["parts"].([]interface{})
+		parts, ok := artifact["parts"].([]any)
 		if !ok {
 			continue
 		}
 
 		for _, part := range parts {
-			partMap, ok := part.(map[string]interface{})
+			partMap, ok := part.(map[string]any)
 			if !ok {
 				continue
 			}

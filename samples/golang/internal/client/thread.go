@@ -447,10 +447,10 @@ func extractMessageContent(msg *cms.GetThreadDataResponseBodyDataMessages) strin
 		if nameVal, ok := artifact["name"]; ok {
 			if nameStr, ok := nameVal.(string); ok && nameStr == "Result" {
 				if partsVal, ok := artifact["parts"]; ok {
-					if parts, ok := partsVal.([]interface{}); ok {
+					if parts, ok := partsVal.([]any); ok {
 						var textParts []string
 						for _, partVal := range parts {
-							if part, ok := partVal.(map[string]interface{}); ok {
+							if part, ok := partVal.(map[string]any); ok {
 								if kindVal, ok := part["kind"]; ok {
 									if kindStr, ok := kindVal.(string); ok && kindStr == "text" {
 										if textVal, ok := part["text"]; ok {

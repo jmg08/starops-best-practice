@@ -82,7 +82,7 @@ type LogEntry struct {
 
 	// Context 上下文信息
 	// Context contains additional contextual information
-	Context map[string]interface{} `json:"context,omitempty"`
+	Context map[string]any `json:"context,omitempty"`
 
 	// Error 错误信息
 	// Error contains error details if applicable
@@ -142,7 +142,7 @@ func (l *Logger) SetOutput(output io.Writer) {
 
 // log 内部日志方法
 // log is the internal logging method
-func (l *Logger) log(level LogLevel, msg string, ctx map[string]interface{}, err error, includeStack bool) {
+func (l *Logger) log(level LogLevel, msg string, ctx map[string]any, err error, includeStack bool) {
 	// 级别过滤
 	// Level filtering
 	if level < l.level {
@@ -183,25 +183,25 @@ func (l *Logger) log(level LogLevel, msg string, ctx map[string]interface{}, err
 
 // Debug 调试日志
 // Debug logs a debug level message
-func (l *Logger) Debug(msg string, ctx map[string]interface{}) {
+func (l *Logger) Debug(msg string, ctx map[string]any) {
 	l.log(LevelDebug, msg, ctx, nil, false)
 }
 
 // Info 信息日志
 // Info logs an info level message
-func (l *Logger) Info(msg string, ctx map[string]interface{}) {
+func (l *Logger) Info(msg string, ctx map[string]any) {
 	l.log(LevelInfo, msg, ctx, nil, false)
 }
 
 // Warn 警告日志
 // Warn logs a warning level message
-func (l *Logger) Warn(msg string, ctx map[string]interface{}) {
+func (l *Logger) Warn(msg string, ctx map[string]any) {
 	l.log(LevelWarn, msg, ctx, nil, false)
 }
 
 // Error 错误日志
 // Error logs an error level message with stack trace
-func (l *Logger) Error(msg string, err error, ctx map[string]interface{}) {
+func (l *Logger) Error(msg string, err error, ctx map[string]any) {
 	l.log(LevelError, msg, ctx, err, true)
 }
 
@@ -216,8 +216,8 @@ type ChatEvent interface {
 
 // LogRequest 记录请求
 // LogRequest logs request parameters at debug level
-func (l *Logger) LogRequest(threadID, message string, variables map[string]interface{}) {
-	ctx := map[string]interface{}{
+func (l *Logger) LogRequest(threadID, message string, variables map[string]any) {
+	ctx := map[string]any{
 		"threadId": threadID,
 		"message":  message,
 	}
@@ -230,7 +230,7 @@ func (l *Logger) LogRequest(threadID, message string, variables map[string]inter
 // LogResponse 记录响应
 // LogResponse logs response summary at debug level
 func (l *Logger) LogResponse(threadID string, statusCode int32, rawJSON string, isDone bool, err error) {
-	ctx := map[string]interface{}{
+	ctx := map[string]any{
 		"threadId":   threadID,
 		"statusCode": statusCode,
 		"isDone":     isDone,
@@ -239,12 +239,12 @@ func (l *Logger) LogResponse(threadID string, statusCode int32, rawJSON string, 
 	// 尝试解析 JSON 获取摘要信息
 	// Try to parse JSON for summary information
 	if rawJSON != "" {
-		var summary map[string]interface{}
+		var summary map[string]any
 		if jsonErr := json.Unmarshal([]byte(rawJSON), &summary); jsonErr == nil {
 			// 提取关键字段作为摘要
 			// Extract key fields as summary
 			if messages, ok := summary["messages"]; ok {
-				if msgArray, ok := messages.([]interface{}); ok {
+				if msgArray, ok := messages.([]any); ok {
 					ctx["messageCount"] = len(msgArray)
 				}
 			}

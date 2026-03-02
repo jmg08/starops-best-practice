@@ -219,7 +219,7 @@ func TestSDKError_MarshalJSON(t *testing.T) {
 			t.Fatalf("failed to marshal: %v", marshalErr)
 		}
 
-		var result map[string]interface{}
+		var result map[string]any
 		if unmarshalErr := json.Unmarshal(data, &result); unmarshalErr != nil {
 			t.Fatalf("failed to unmarshal: %v", unmarshalErr)
 		}
@@ -244,7 +244,7 @@ func TestSDKError_MarshalJSON(t *testing.T) {
 			t.Fatalf("failed to marshal: %v", marshalErr)
 		}
 
-		var result map[string]interface{}
+		var result map[string]any
 		if unmarshalErr := json.Unmarshal(data, &result); unmarshalErr != nil {
 			t.Fatalf("failed to unmarshal: %v", unmarshalErr)
 		}

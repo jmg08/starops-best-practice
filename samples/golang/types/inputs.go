@@ -16,11 +16,11 @@ type UserInputParams struct {
 	// 值为 []UserContext 的 JSON 字符串
 	UserContext string `json:"userContext,omitempty"`
 
-	// 值为 map[string]interface{} 的 JSON 字符串
+	// 值为 map[string]any 的 JSON 字符串
 	Config string `json:"config,omitempty"`
 
 	// 用于 Agent 恢复运行时，读取用户的决策
-	UserInteractiveResp map[string]interface{} `json:"userInteractive,omitempty"`
+	UserInteractiveResp map[string]any `json:"userInteractive,omitempty"`
 }
 
 // UserContextType 定义上下文类型
@@ -59,7 +59,7 @@ type EntityUserData struct {
 }
 
 // ContextData 上下文数据接口，所有 UserContext 的 Data 类型都应实现此接口
-type ContextData interface{}
+type ContextData any
 
 // UserContext 用户上下文，根据Type决定Data的类型
 type UserContext struct {
@@ -68,4 +68,4 @@ type UserContext struct {
 }
 
 // CommonUserData map 类型的通用数据
-type CommonUserData map[string]interface{}
+type CommonUserData map[string]any

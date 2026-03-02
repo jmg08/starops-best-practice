@@ -233,9 +233,9 @@ type ItemThinkingPayload struct {
 type ItemInteractiveUserAckPayload map[string]any
 type ItemInteractivePayload struct {
 	InteractiveType InteractionType                `json:"type"`
-	Meta            map[string]interface{}         `json:"meta,omitempty"`
-	Data            []map[string]interface{}       `json:"data,omitempty"`
-	Queries         []map[string]interface{}       `json:"queries,omitempty"`
+	Meta            map[string]any         `json:"meta,omitempty"`
+	Data            []map[string]any       `json:"data,omitempty"`
+	Queries         []map[string]any       `json:"queries,omitempty"`
 	UserAck         *ItemInteractiveUserAckPayload `json:"userAck,omitempty"`
 }
 

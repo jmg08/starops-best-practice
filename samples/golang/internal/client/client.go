@@ -18,7 +18,7 @@ import (
 // 用于配置对话请求的各种参数
 type ChatOptions struct {
 	Timeout    time.Duration          // 超时时间，0 表示不设置超时
-	Variables  map[string]interface{} // 请求变量
+	Variables  map[string]any // 请求变量
 	OnEvent    func(*ChatEvent)       // 事件回调
 	SimpleMode bool                   // 简洁模式，只输出最终文本
 }
@@ -134,7 +134,7 @@ type ChatEvent struct {
 
 // Chat 开始SSE对话（基础版本）
 func (c *AgentClient) Chat(ctx context.Context, threadID, message string) <-chan *ChatEvent {
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"workspace": c.config.Workspace,
 		"region":    c.config.Region,
 		"language":  "zh",
@@ -145,7 +145,7 @@ func (c *AgentClient) Chat(ctx context.Context, threadID, message string) <-chan
 }
 
 // ChatWithVariables 开始SSE对话（支持自定义 variables）
-func (c *AgentClient) ChatWithVariables(ctx context.Context, threadID, message string, variables map[string]interface{}) <-chan *ChatEvent {
+func (c *AgentClient) ChatWithVariables(ctx context.Context, threadID, message string, variables map[string]any) <-chan *ChatEvent {
 	events := make(chan *ChatEvent, 10)
 
 	go func() {
@@ -161,7 +161,7 @@ func (c *AgentClient) ChatWithVariables(ctx context.Context, threadID, message s
 
 		// 确保包含必要字段
 		if variables == nil {
-			variables = make(map[string]interface{})
+			variables = make(map[string]any)
 		}
 		if _, ok := variables["workspace"]; !ok {
 			variables["workspace"] = c.config.Workspace
@@ -259,7 +259,7 @@ func (c *AgentClient) ChatWithOptions(ctx context.Context, threadID, message str
 	// 使用提供的变量或默认变量
 	variables := opts.Variables
 	if variables == nil {
-		variables = map[string]interface{}{
+		variables = map[string]any{
 			"workspace": c.config.Workspace,
 			"region":    c.config.Region,
 			"language":  "zh",

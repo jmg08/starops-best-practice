@@ -29,7 +29,7 @@ type InteractiveHandler struct {
 type InteractiveResponse struct {
 	InteractionID string                 `json:"interactionId"`
 	Type          types.InteractionType  `json:"type"`
-	Response      map[string]interface{} `json:"response"`
+	Response      map[string]any `json:"response"`
 }
 
 // NewInteractiveHandler 创建交互处理器
@@ -117,7 +117,7 @@ func (h *InteractiveHandler) HandleUserAck(ctx context.Context, payload *types.I
 	return &InteractiveResponse{
 		InteractionID: interactionID,
 		Type:          types.InteractionTypeUserAck,
-		Response: map[string]interface{}{
+		Response: map[string]any{
 			"confirmed": confirmed,
 		},
 	}, nil
@@ -173,7 +173,7 @@ func (h *InteractiveHandler) HandleUserSelect(ctx context.Context, payload *type
 	return &InteractiveResponse{
 		InteractionID: interactionID,
 		Type:          types.InteractionTypeUserSelect,
-		Response: map[string]interface{}{
+		Response: map[string]any{
 			"selectedIndex": selectedIndex - 1, // 0-based index
 			"selectedValue": selectedOption,
 		},
@@ -218,7 +218,7 @@ func (h *InteractiveHandler) HandleUserInput(ctx context.Context, payload *types
 	return &InteractiveResponse{
 		InteractionID: interactionID,
 		Type:          types.InteractionTypeUserInput,
-		Response: map[string]interface{}{
+		Response: map[string]any{
 			"value": input,
 		},
 	}, nil
@@ -252,7 +252,7 @@ func (h *InteractiveHandler) ResumeChat(ctx context.Context, threadID string, re
 	}
 
 	// 构建包含交互响应的变量
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"workspace":         h.client.config.Workspace,
 		"region":            h.client.config.Region,
 		"language":          "zh",
@@ -274,7 +274,7 @@ func (h *InteractiveHandler) ResumeChat(ctx context.Context, threadID string, re
 // =================================================================================
 
 // parseInteractivePayload 解析交互负载
-func (h *InteractiveHandler) parseInteractivePayload(payload interface{}) (*types.ItemInteractivePayload, error) {
+func (h *InteractiveHandler) parseInteractivePayload(payload any) (*types.ItemInteractivePayload, error) {
 	if payload == nil {
 		return nil, NewSDKError(ErrCodeParseError, "交互负载为空")
 	}
@@ -347,7 +347,7 @@ func (h *InteractiveHandler) readInputWithTimeout(ctx context.Context) (string, 
 }
 
 // printf 格式化输出
-func (h *InteractiveHandler) printf(format string, args ...interface{}) {
+func (h *InteractiveHandler) printf(format string, args ...any) {
 	fmt.Fprintf(h.writer, format, args...)
 }
 
@@ -399,7 +399,7 @@ func (h *InteractiveHandler) getPlaceholder(payload *types.ItemInteractivePayloa
 }
 
 // getOptions 从负载中获取选项列表
-func (h *InteractiveHandler) getOptions(payload *types.ItemInteractivePayload) []map[string]interface{} {
+func (h *InteractiveHandler) getOptions(payload *types.ItemInteractivePayload) []map[string]any {
 	// 优先从 Data 字段获取
 	if len(payload.Data) > 0 {
 		return payload.Data
@@ -407,10 +407,10 @@ func (h *InteractiveHandler) getOptions(payload *types.ItemInteractivePayload) [
 
 	// 尝试从 Meta 中获取
 	if payload.Meta != nil {
-		if options, ok := payload.Meta["options"].([]interface{}); ok {
-			result := make([]map[string]interface{}, 0, len(options))
+		if options, ok := payload.Meta["options"].([]any); ok {
+			result := make([]map[string]any, 0, len(options))
 			for _, opt := range options {
-				if optMap, ok := opt.(map[string]interface{}); ok {
+				if optMap, ok := opt.(map[string]any); ok {
 					result = append(result, optMap)
 				}
 			}
@@ -422,7 +422,7 @@ func (h *InteractiveHandler) getOptions(payload *types.ItemInteractivePayload) [
 }
 
 // getOptionLabel 获取选项的显示标签
-func (h *InteractiveHandler) getOptionLabel(option map[string]interface{}, index int) string {
+func (h *InteractiveHandler) getOptionLabel(option map[string]any, index int) string {
 	// 尝试获取 label 字段
 	if label, ok := option["label"].(string); ok {
 		return label

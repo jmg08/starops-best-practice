@@ -51,7 +51,7 @@ All language samples use the same environment variables (via `.env` file):
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `VIBEOPS_WORKSPACE` | ❌ | Workspace ID（工作空间 ID） |
+| `VIBEOPS_WORKSPACE` | ✅ | Workspace ID（工作空间 ID） |
 | `VIBEOPS_ENDPOINT` | ✅ | API endpoint（API 端点） |
 | `VIBEOPS_REGION` | ❌ | Region, default `cn-hangzhou`（地域） |
 | `ALIBABA_CLOUD_ACCESS_KEY_ID` | ✅ | Access Key ID |
@@ -197,9 +197,9 @@ The `java8` project is a syntax-only adaptation of the `java` project. Key diffe
 | mockito | 5.5.0 | 4.11.0 |
 | Lambda / Runnable | Lambda | Anonymous `Runnable` |
 
-> **Note on Java SDK**: The Alibaba Cloud CMS Java SDK (`cms20240330:6.0.1`) uses `createChat()` which does not support SSE streaming. The API returns SSE stream data, causing a `convert to JSON` error. The request still succeeds — the full response is in the error message. Python, Go, and TypeScript all support SSE streaming natively.
+> **Note on Java SDK**: The Alibaba Cloud CMS Java SDK (`cms20240330:6.0.1`) does not have a `createChatWithSSE()` method. The `createChat()` API returns an SSE stream, but the `tea-openapi` runtime attempts to parse it as JSON, causing an exception. The SDK samples automatically extract SSE data from the exception chain and parse each event — no manual handling is needed. Python, Go, and TypeScript all support SSE streaming natively via `createChatWithSSE()`.
 >
-> **Java SDK 说明**: 阿里云 CMS Java SDK 使用 `createChat()` 不支持 SSE 流式响应。API 返回 SSE 流数据会导致 `convert to JSON` 错误。请求本身是成功的，完整响应在错误信息中。Python、Go、TypeScript 均原生支持 SSE 流式输出。
+> **Java SDK 说明**: 阿里云 CMS Java SDK（`cms20240330:6.0.1`）没有 `createChatWithSSE()` 方法。`createChat()` API 返回 SSE 流，但 `tea-openapi` 运行时会尝试将其解析为 JSON 导致异常。SDK 示例会自动从异常链中提取 SSE 数据并逐条解析事件，无需手动处理。Python、Go、TypeScript 均通过 `createChatWithSSE()` 原生支持 SSE 流式输出。
 
 ---
 

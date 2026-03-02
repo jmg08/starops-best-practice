@@ -184,17 +184,15 @@ export class AgentClient {
     message: string,
     timeout: number
   ): AsyncIterable<ChatEvent> {
-    const timeoutPromise = new Promise<ChatEvent>((_, reject) => {
-      setTimeout(() => reject(SDKException.timeout(`${timeout}ms`)), timeout);
-    });
+    const deadline = Date.now() + timeout;
 
-    try {
-      for await (const event of this.chat(threadId, message)) {
-        yield event;
-        if (event.isDone || event.error) return;
+    for await (const event of this.chat(threadId, message)) {
+      if (Date.now() > deadline) {
+        yield { rawJson: '', statusCode: 0, isDone: false, error: SDKException.timeout(`${timeout}ms`) };
+        return;
       }
-    } catch (e) {
-      yield { rawJson: '', statusCode: 0, isDone: false, error: e as Error };
+      yield event;
+      if (event.isDone || event.error) return;
     }
   }
 

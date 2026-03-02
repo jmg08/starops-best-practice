@@ -59,6 +59,8 @@ venv/
 ENV/
 env/
 .env/
+.env
+
 
 # 分发/打包
 build/
@@ -175,4 +177,3 @@ logs/
 *.key
 credentials.json
 secrets.json
-.gitignore

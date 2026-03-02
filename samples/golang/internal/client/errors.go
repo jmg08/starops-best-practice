@@ -78,7 +78,7 @@ type SDKError struct {
 
 	// Context 上下文信息
 	// Additional context about the error
-	Context map[string]interface{} `json:"context,omitempty"`
+	Context map[string]any `json:"context,omitempty"`
 
 	// Suggestion 建议
 	// Suggested action to resolve the error
@@ -137,9 +137,9 @@ func NewSDKErrorWithCause(code ErrorCode, message string, cause error) *SDKError
 
 // WithContext 添加上下文信息
 // WithContext adds context information to the error
-func (e *SDKError) WithContext(key string, value interface{}) *SDKError {
+func (e *SDKError) WithContext(key string, value any) *SDKError {
 	if e.Context == nil {
-		e.Context = make(map[string]interface{})
+		e.Context = make(map[string]any)
 	}
 	e.Context[key] = value
 	return e
