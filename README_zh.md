@@ -180,16 +180,6 @@ npx tsx src/examples/thread-manager.ts list
 | mockito | 5.5.0 | 4.11.0 |
 | Lambda / Runnable | Lambda | 匿名 `Runnable` |
 
-> **Java SDK 说明**: 阿里云 CMS Java SDK（`cms20240330:6.0.1`）没有 `createChatWithSSE()` 方法。`createChat()` API 返回 SSE 流，但 `tea-openapi` 运行时会尝试将其解析为 JSON 导致异常。SDK 示例会自动从异常链中提取 SSE 数据并逐条解析事件，无需手动处理。Python、Go、TypeScript 均通过 `createChatWithSSE()` 原生支持 SSE 流式输出。
-
----
-
-## 文档
-
-- [Go 中文文档](samples/golang/README_zh.md) | [Go README](samples/golang/README.md)
-- [Java 中文文档](samples/java/README_zh.md) | [Java README](samples/java/README.md)
-- [语言路线图](docs/LANGUAGE_ROADMAP.md)
-
 ---
 
 ## 许可证

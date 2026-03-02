@@ -180,16 +180,6 @@ The `java8` project is a syntax-only adaptation of the `java` project. Key diffe
 | mockito | 5.5.0 | 4.11.0 |
 | Lambda / Runnable | Lambda | Anonymous `Runnable` |
 
-> **Note on Java SDK**: The Alibaba Cloud CMS Java SDK (`cms20240330:6.0.1`) does not have a `createChatWithSSE()` method. The `createChat()` API returns an SSE stream, but the `tea-openapi` runtime attempts to parse it as JSON, causing an exception. The SDK samples automatically extract SSE data from the exception chain and parse each event — no manual handling is needed. Python, Go, and TypeScript all support SSE streaming natively via `createChatWithSSE()`.
-
----
-
-## Documentation
-
-- [Go README](samples/golang/README.md) | [Go 中文文档](samples/golang/README_zh.md)
-- [Java README](samples/java/README.md) | [Java 中文文档](samples/java/README_zh.md)
-- [Language Roadmap](docs/LANGUAGE_ROADMAP.md)
-
 ---
 
 ## License
