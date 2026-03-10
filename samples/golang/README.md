@@ -17,8 +17,7 @@ go run ./cmd/chat/
 
 | 变量 | 必需 | 说明 |
 |-----|------|-----|
-| VIBEOPS_WORKSPACE | ✅ | 工作空间 ID |
-| VIBEOPS_ENDPOINT | ✅ | API 端点 |
+| VIBEOPS_ENDPOINT | ✅ | CMS API 端点，格式: `cms.{region-id}.aliyuncs.com` |
 | ALIBABA_CLOUD_ACCESS_KEY_ID | ✅ | Access Key ID |
 | ALIBABA_CLOUD_ACCESS_KEY_SECRET | ✅ | Access Key Secret |
 | VIBEOPS_EMPLOYEE_NAME | ❌ | 数字员工名称 (默认 default) |
@@ -68,7 +67,6 @@ go run ./cmd/thread-manager/ delete <thread-id> # 删除会话
 | 文件 | 场景 |
 |-----|------|
 | entity.json | 实体查询 |
-| metric_query.json | 指标查询 |
 | sls_query.json | 日志查询 |
 | text_to_sql.json | SQL 生成 |
 | alert_management.json | 告警管理 |

@@ -8,7 +8,6 @@
 |--------|------|------|
 | general_chat.json | 普通对话 | 通用查询对话 |
 | entity.json | 实体查询 | APM 服务实体延迟查询（带上下文） |
-| metric_query.json | 指标查询 | 云监控指标数据查询 |
 | sql_generation.json | SQL 生成 | 自然语言转 SQL 查询（skill: sql_generation） |
 | data_agent.json | 数据代理 | 自然语言数据查询（skill: data-agent-pro） |
 
@@ -36,18 +35,6 @@ cart 实体延迟多少
 - `userContext.type`: `entity`
 - `entity_domain`: `apm`
 - `entity_type`: `apm.service`
-
-### metric_query.json - 指标查询
-
-查询云产品监控指标（CPU、内存等）。
-
-```
-查询最近1小时CPU使用率超过80%的ECS实例
-```
-
-关键配置：
-- `userContext.type`: `metric_query`
-- `config.queryMode`: `metric`
 
 ### sql_generation.json - SQL 生成
 

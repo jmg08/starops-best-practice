@@ -45,9 +45,6 @@ func LoadConfigFromEnv() (*Config, error) {
 	}
 
 	var missingVars []string
-	if cfg.Workspace == "" {
-		missingVars = append(missingVars, "VIBEOPS_WORKSPACE")
-	}
 	if cfg.Endpoint == "" {
 		missingVars = append(missingVars, "VIBEOPS_ENDPOINT")
 	}

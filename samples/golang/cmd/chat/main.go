@@ -24,12 +24,11 @@ func main() {
 	if err != nil {
 		fmt.Printf("❌ 配置加载失败: %v\n", err)
 		fmt.Println("\n请设置环境变量:")
-		fmt.Println("  VIBEOPS_WORKSPACE, VIBEOPS_ENDPOINT")
+		fmt.Println("  VIBEOPS_ENDPOINT")
 		fmt.Println("  ALIBABA_CLOUD_ACCESS_KEY_ID, ALIBABA_CLOUD_ACCESS_KEY_SECRET")
 		os.Exit(1)
 	}
 
-	fmt.Printf("📋 Workspace: %s\n", cfg.Workspace)
 	fmt.Printf("📋 Employee: %s\n\n", cfg.EmployeeName)
 
 	// 创建客户端

@@ -23,9 +23,6 @@
         "timeStamp": "1770710677",
         "userContext": "[{\"type\":\"metadata\",\"data\":{\"fromTime\":1770685976,\"toTime\":1770686876}}]",
         "startTime": 1770685976,
-        "endTime": 1770686876,
-        "config": "{\"disableThreadData\":false}",
-        "skill_name": "data-agent-pro",
-        "skill": "data-agent-pro"
+        "endTime": 1770686876
     }
 }

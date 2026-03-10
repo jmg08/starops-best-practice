@@ -24,7 +24,6 @@ public class Chat {
         try {
             // Load configuration
             Config cfg = Config.loadFromEnv();
-            System.out.printf("📋 Workspace: %s%n", cfg.getWorkspace());
             System.out.printf("📋 Employee: %s%n%n", cfg.getEmployeeName());
 
             // Create client
@@ -91,7 +90,7 @@ public class Chat {
         } catch (SDKException e) {
             System.out.printf("❌ 配置加载失败: %s%n", e.getMessage());
             System.out.println("\n请设置环境变量:");
-            System.out.println("  VIBEOPS_WORKSPACE, VIBEOPS_ENDPOINT");
+            System.out.println("  VIBEOPS_ENDPOINT");
             System.out.println("  ALIBABA_CLOUD_ACCESS_KEY_ID, ALIBABA_CLOUD_ACCESS_KEY_SECRET");
             System.exit(1);
         } catch (Exception e) {

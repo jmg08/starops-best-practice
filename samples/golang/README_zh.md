@@ -76,7 +76,6 @@ samples/golang/
 
 2. **设置环境变量**
    ```bash
-   export VIBEOPS_WORKSPACE="your-workspace"
    export VIBEOPS_ENDPOINT="cms.cn-hongkong.aliyuncs.com"
    export VIBEOPS_REGION="cn-hongkong"
    export ALIBABA_CLOUD_ACCESS_KEY_ID="your-access-key-id"
@@ -93,8 +92,7 @@ samples/golang/
 
 | 变量名 | 必需 | 描述 | 示例 |
 |--------|------|------|------|
-| `VIBEOPS_WORKSPACE` | ✅ | 工作空间 ID | `rca-benchmark` |
-| `VIBEOPS_ENDPOINT` | ✅ | API 端点地址 | `cms.cn-hongkong.aliyuncs.com` |
+| `VIBEOPS_ENDPOINT` | ✅ | CMS API 端点，格式: `cms.{region-id}.aliyuncs.com` | `cms.cn-hongkong.aliyuncs.com` |
 | `ALIBABA_CLOUD_ACCESS_KEY_ID` | ✅ | 阿里云 Access Key ID | |
 | `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | ✅ | 阿里云 Access Key Secret | |
 | `VIBEOPS_REGION` | ❌ | 地域（需与端点匹配） | `cn-hongkong` |
