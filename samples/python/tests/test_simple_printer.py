@@ -206,3 +206,90 @@ class TestSimplePrinter:
         result = self.printer.process_event(event)
 
         assert result == ""
+
+
+# ---------------------------------------------------------------------------
+# 以下测试针对真实 SimplePrinter 的 event 字段快速跳过逻辑
+# ---------------------------------------------------------------------------
+from types import SimpleNamespace
+import importlib.util
+import os
+
+# 直接加载 simple_printer 模块，绕过包 __init__.py 中对 SDK 的依赖
+_sp_path = os.path.join(
+    os.path.dirname(__file__), os.pardir,
+    "cms_sdk_samples", "client", "simple_printer.py",
+)
+_spec = importlib.util.spec_from_file_location("simple_printer", _sp_path)
+_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+RealSimplePrinter = _mod.SimplePrinter
+
+
+def _make_body_with_text(text: str) -> dict:
+    """构造包含可提取文本的 body"""
+    return {
+        "messages": [
+            {
+                "role": "system",
+                "artifacts": [
+                    {"parts": [{"kind": "text", "text": text}]}
+                ],
+            }
+        ]
+    }
+
+
+class TestSimplePrinterEventFieldFilter:
+    """测试 event 字段快速跳过逻辑（lines 27-29）"""
+
+    def setup_method(self):
+        self.printer = RealSimplePrinter()
+
+    def test_non_text_event_type_returns_empty(self):
+        """event='interaction' 等非 text/task_finished 事件应直接返回空字符串"""
+        event = SimpleNamespace(
+            event="interaction",
+            body=_make_body_with_text("应该被跳过的内容"),
+        )
+        result = self.printer.process_event(event)
+        assert result == ""
+        assert self.printer.get_final_text() == ""
+
+    def test_text_event_type_processes_normally(self):
+        """event='text' 的事件应正常提取内容"""
+        event = SimpleNamespace(
+            event="text",
+            body=_make_body_with_text("正常文本"),
+        )
+        result = self.printer.process_event(event)
+        assert result == "正常文本"
+        assert self.printer.get_final_text() == "正常文本"
+
+    def test_task_finished_event_type_processes_normally(self):
+        """event='task_finished' 的事件应正常提取内容"""
+        event = SimpleNamespace(
+            event="task_finished",
+            body=_make_body_with_text("任务完成"),
+        )
+        result = self.printer.process_event(event)
+        assert result == "任务完成"
+
+    def test_no_event_attribute_processes_normally(self):
+        """没有 event 属性的事件应正常处理（向后兼容）"""
+        event = SimpleNamespace(
+            body=_make_body_with_text("无 event 字段"),
+        )
+        result = self.printer.process_event(event)
+        assert result == "无 event 字段"
+
+    def test_various_skipped_event_types(self):
+        """多种非文本事件类型均应被跳过"""
+        for event_type in ("interaction", "status", "error", "progress", "unknown"):
+            printer = RealSimplePrinter()
+            event = SimpleNamespace(
+                event=event_type,
+                body=_make_body_with_text(f"内容-{event_type}"),
+            )
+            result = printer.process_event(event)
+            assert result == "", f"event='{event_type}' 应返回空字符串"
