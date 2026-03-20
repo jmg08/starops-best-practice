@@ -149,6 +149,74 @@ describe('SimplePrinter', () => {
     expect(result).toBe('Part1Part2');
   });
 
+  it('should return empty string for non-text/non-task_finished event type', () => {
+    const event: ChatEvent = {
+      event: 'interaction',
+      body: {
+        messages: [
+          {
+            role: 'system',
+            artifacts: [
+              { parts: [{ kind: 'text', text: 'Should be skipped' }] },
+            ],
+          },
+        ],
+      },
+      rawJson: '{}',
+      statusCode: 200,
+      isDone: false,
+    };
+
+    const result = printer.processEvent(event);
+
+    expect(result).toBe('');
+  });
+
+  it('should process event with event field set to text', () => {
+    const event: ChatEvent = {
+      event: 'text',
+      body: {
+        messages: [
+          {
+            role: 'system',
+            artifacts: [
+              { parts: [{ kind: 'text', text: 'Text event content' }] },
+            ],
+          },
+        ],
+      },
+      rawJson: '{}',
+      statusCode: 200,
+      isDone: false,
+    };
+
+    const result = printer.processEvent(event);
+
+    expect(result).toBe('Text event content');
+  });
+
+  it('should process event with no event field (fallback)', () => {
+    const event: ChatEvent = {
+      body: {
+        messages: [
+          {
+            role: 'system',
+            artifacts: [
+              { parts: [{ kind: 'text', text: 'No event field' }] },
+            ],
+          },
+        ],
+      },
+      rawJson: '{}',
+      statusCode: 200,
+      isDone: false,
+    };
+
+    const result = printer.processEvent(event);
+
+    expect(result).toBe('No event field');
+  });
+
   it('should ignore non-text kind', () => {
     const event: ChatEvent = {
       body: {
