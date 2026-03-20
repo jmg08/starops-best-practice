@@ -22,7 +22,12 @@ class SimplePrinter:
         """处理事件，提取文本内容 / Process event and extract text content"""
         if not event:
             return ""
-        
+
+        # 利用 event 字段快速跳过非文本事件
+        event_type = getattr(event, 'event', None)
+        if event_type and event_type not in ('text', 'task_finished'):
+            return ""
+
         body = getattr(event, 'body', None)
         if not body:
             return ""
