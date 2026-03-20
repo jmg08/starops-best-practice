@@ -13,6 +13,8 @@ export class SimplePrinter {
   /** 处理事件，提取文本内容 / Process event and extract text content */
   processEvent(event: ChatEvent | null | undefined): string {
     if (!event?.body) return '';
+    // 利用 event 字段快速跳过非文本事件
+    if (event.event && event.event !== 'text' && event.event !== 'task_finished') return '';
 
     const extracted: string[] = [];
     const messages = (event.body.messages as Array<Record<string, unknown>>) || [];
