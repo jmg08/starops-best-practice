@@ -30,6 +30,10 @@ func (p *SimplePrinter) ProcessEvent(event *ChatEvent) string {
 	if event == nil || event.Body == nil {
 		return ""
 	}
+	// 利用 Event 字段快速跳过非文本事件
+	if event.Event != "" && event.Event != "text" && event.Event != "task_finished" {
+		return ""
+	}
 
 	var extracted strings.Builder
 

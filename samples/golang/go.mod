@@ -3,7 +3,7 @@ module github.com/vibeops/samples/golang
 go 1.22
 
 require (
-	github.com/alibabacloud-go/cms-20240330/v6 v6.0.1
+	github.com/alibabacloud-go/cms-20240330/v6 v6.2.1
 	github.com/alibabacloud-go/darabonba-openapi/v2 v2.1.14
 	github.com/alibabacloud-go/tea v1.3.13
 	github.com/leanovate/gopter v0.2.11

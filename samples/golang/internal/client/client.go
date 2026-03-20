@@ -103,13 +103,21 @@ func (c *AgentClient) Config() *Config {
 }
 
 // CreateThread 创建会话
-func (c *AgentClient) CreateThread(ctx context.Context) (string, error) {
+func (c *AgentClient) CreateThread(ctx context.Context, attributes ...map[string]string) (string, error) {
 	req := &cms.CreateThreadRequest{}
 	req.SetTitle(fmt.Sprintf("Chat-%d", time.Now().Unix()))
 
 	variables := &cms.CreateThreadRequestVariables{}
 	variables.SetWorkspace(c.config.Workspace)
 	req.SetVariables(variables)
+
+	if len(attributes) > 0 && attributes[0] != nil {
+		attrs := make(map[string]*string)
+		for k, v := range attributes[0] {
+			attrs[k] = dara.String(v)
+		}
+		req.SetAttributes(attrs)
+	}
 
 	resp, err := c.client.CreateThread(dara.String(c.config.EmployeeName), req)
 	if err != nil {
@@ -130,6 +138,8 @@ type ChatEvent struct {
 	StatusCode int32
 	IsDone     bool
 	Error      error
+	Id         string
+	Event      string
 }
 
 // Chat 开始SSE对话（基础版本）
@@ -214,9 +224,11 @@ func (c *AgentClient) ChatWithVariables(ctx context.Context, threadID, message s
 					Body:       resp.Body,
 					RawJSON:    rawJSON,
 					StatusCode: dara.Int32Value(resp.StatusCode),
+					Id:         dara.StringValue(resp.Id),
+					Event:      dara.StringValue(resp.Event),
 				}
 
-				if isDoneMessage(resp.Body) {
+				if isDoneMessage(resp) {
 					event.IsDone = true
 				}
 
@@ -360,13 +372,20 @@ func IsTimeout(err error) bool {
 	return ok
 }
 
-func isDoneMessage(body *cms.CreateChatResponseBody) bool {
-	if body == nil {
+func isDoneMessage(resp *cms.CreateChatResponse) bool {
+	if resp == nil {
 		return false
 	}
-	for _, msg := range body.Messages {
-		if msg.Type != nil && *msg.Type == "done" {
-			return true
+	// 优先使用 response 级别的 Event 字段（SSE 事件类型）
+	if resp.Event != nil && *resp.Event == "done" {
+		return true
+	}
+	// fallback: 遍历 Messages
+	if resp.Body != nil {
+		for _, msg := range resp.Body.Messages {
+			if msg.Type != nil && *msg.Type == "done" {
+				return true
+			}
 		}
 	}
 	return false
