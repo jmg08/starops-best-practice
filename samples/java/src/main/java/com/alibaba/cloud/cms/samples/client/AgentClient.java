@@ -64,6 +64,14 @@ public class AgentClient implements AutoCloseable {
      * Create a new thread
      */
     public String createThread() throws SDKException {
+        return createThread(null);
+    }
+
+    /**
+     * 创建会话（支持自定义属性）
+     * Create a new thread with optional attributes
+     */
+    public String createThread(Map<String, String> attributes) throws SDKException {
         try {
             CreateThreadRequest request = new CreateThreadRequest();
             request.setTitle("Chat-" + Instant.now().getEpochSecond());
@@ -71,6 +79,10 @@ public class AgentClient implements AutoCloseable {
             CreateThreadRequest.CreateThreadRequestVariables variables = new CreateThreadRequest.CreateThreadRequestVariables();
             variables.setWorkspace(config.getWorkspace());
             request.setVariables(variables);
+
+            if (attributes != null && !attributes.isEmpty()) {
+                request.setAttributes(attributes);
+            }
 
             CreateThreadResponse response = client.createThread(config.getEmployeeName(), request);
 
