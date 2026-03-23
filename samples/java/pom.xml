@@ -22,18 +22,18 @@
     </properties>
 
     <dependencies>
-        <!-- Alibaba Cloud CMS SDK -->
+        <!-- Alibaba Cloud CMS 异步 SDK（支持 SSE 流式迭代） -->
         <dependency>
             <groupId>com.aliyun</groupId>
-            <artifactId>cms20240330</artifactId>
-            <version>6.2.1</version>
+            <artifactId>alibabacloud-cms20240330</artifactId>
+            <version>6.0.6</version>
         </dependency>
 
-        <!-- Alibaba Cloud Tea (for TeaException SSE handling) -->
+        <!-- Apache 异步 HTTP 客户端 -->
         <dependency>
             <groupId>com.aliyun</groupId>
-            <artifactId>tea</artifactId>
-            <version>1.4.1</version>
+            <artifactId>aliyun-http-apache</artifactId>
+            <version>0.2.15-beta</version>
         </dependency>
 
         <!-- JSON Processing -->

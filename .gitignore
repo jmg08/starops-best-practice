@@ -175,5 +175,4 @@ logs/
 # 敏感文件
 *.pem
 *.key
-credentials.json
-secrets.json
+credentials.jsond
