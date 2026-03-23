@@ -19,7 +19,6 @@ async def main_async():
     try:
         # Load configuration
         cfg = Config.load_from_env()
-        print(f"📋 Workspace: {cfg.workspace}")
         print(f"📋 Employee: {cfg.employee_name}\n")
 
         # Create client
@@ -68,7 +67,7 @@ async def main_async():
     except SDKException as e:
         print(f"❌ 配置加载失败: {e}")
         print("\n请设置环境变量:")
-        print("  VIBEOPS_WORKSPACE, VIBEOPS_ENDPOINT")
+        print("  VIBEOPS_ENDPOINT")
         print("  ALIBABA_CLOUD_ACCESS_KEY_ID, ALIBABA_CLOUD_ACCESS_KEY_SECRET")
         sys.exit(1)
     except Exception as e:

@@ -20,8 +20,7 @@ python -m cms_sdk_samples.examples.chat
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| VIBEOPS_WORKSPACE | ✅ | Workspace ID |
-| VIBEOPS_ENDPOINT | ✅ | API endpoint |
+| VIBEOPS_ENDPOINT | ✅ | CMS API endpoint, format: `cms.{region-id}.aliyuncs.com` |
 | ALIBABA_CLOUD_ACCESS_KEY_ID | ✅ | Access Key ID |
 | ALIBABA_CLOUD_ACCESS_KEY_SECRET | ✅ | Access Key Secret |
 | VIBEOPS_EMPLOYEE_NAME | ❌ | Digital employee name (default: default) |

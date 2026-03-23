@@ -27,7 +27,6 @@
         "skill_name": "sql_generation",
         "userContext": "[{\"type\":\"metadata\",\"data\":{\"from_time\":1772265524,\"to_time\":1772266424,\"fromTime\":1772265524,\"toTime\":1772266424}}]",
         "skill": "sql_generation",
-        "config": "{\"disableThreadData\":false}",
         "source": "{\"current_uid\":\"[uid]\",\"uid\":\"[uid]\",\"isSts\":false,\"isSub\":true,\"internalUser\":true,\"url\":\"https://sls.console.aliyun.com/lognext/project/cms-haoqi-test-rus-33bmprkrefaaadtt/logsearch/haoqi-test-rus__entity?slsRegion=rus-west-1\",\"origin\":\"https://sls.console.aliyun.com\",\"isProd\":true}"
     }
 }

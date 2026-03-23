@@ -16,7 +16,6 @@ async function main() {
   try {
     // Load configuration
     const cfg = loadConfigFromEnv();
-    console.log(`📋 Workspace: ${cfg.workspace}`);
     console.log(`📋 Employee: ${cfg.employeeName}\n`);
 
     // Create client
@@ -90,7 +89,7 @@ async function main() {
     if (e instanceof SDKException) {
       console.log(`❌ 配置加载失败: ${e}`);
       console.log('\n请设置环境变量:');
-      console.log('  VIBEOPS_WORKSPACE, VIBEOPS_ENDPOINT');
+      console.log('  VIBEOPS_ENDPOINT');
       console.log('  ALIBABA_CLOUD_ACCESS_KEY_ID, ALIBABA_CLOUD_ACCESS_KEY_SECRET');
     } else {
       console.log(`❌ 错误: ${(e as Error).message}`);

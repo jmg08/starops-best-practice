@@ -36,8 +36,6 @@ class Config:
 
         # Validate required fields
         missing_vars = []
-        if not workspace:
-            missing_vars.append("VIBEOPS_WORKSPACE")
         if not endpoint:
             missing_vars.append("VIBEOPS_ENDPOINT")
         if not access_key_id:

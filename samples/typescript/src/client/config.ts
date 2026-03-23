@@ -29,7 +29,6 @@ export function loadConfigFromEnv(): Config {
 
   // Validate required fields
   const missingVars: string[] = [];
-  if (!workspace) missingVars.push('VIBEOPS_WORKSPACE');
   if (!endpoint) missingVars.push('VIBEOPS_ENDPOINT');
   if (!accessKeyId) missingVars.push('ALIBABA_CLOUD_ACCESS_KEY_ID');
   if (!accessKeySecret) missingVars.push('ALIBABA_CLOUD_ACCESS_KEY_SECRET');

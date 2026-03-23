@@ -38,9 +38,6 @@ public class Config {
 
         // Validate required fields
         List<String> missingVars = new ArrayList<>();
-        if (cfg.workspace == null || cfg.workspace.isEmpty()) {
-            missingVars.add("VIBEOPS_WORKSPACE");
-        }
         if (cfg.endpoint == null || cfg.endpoint.isEmpty()) {
             missingVars.add("VIBEOPS_ENDPOINT");
         }
