@@ -39,12 +39,17 @@ Supports multi-turn conversation with context preservation.
 ### chat_from_file - Load Requests from File
 
 ```bash
-# Process single file
+# Process single file (default: shows detailed event information)
 python -m cms_sdk_samples.examples.chat_from_file -file ../../requests/cms/entity.json
 
 # Batch process directory
 python -m cms_sdk_samples.examples.chat_from_file -dir ../../requests/cms/
+
+# Simple mode (text output only)
+python -m cms_sdk_samples.examples.chat_from_file -file ../../requests/cms/entity.json -simple
 ```
+
+By default uses `EventPrinter` to display detailed SSE event information (role, content, tool calls, agent calls, duration, etc.). Use `-simple` to switch to `SimplePrinter` for text-only output.
 
 ### chat_interactive - Interactive Event Handling
 

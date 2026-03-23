@@ -101,7 +101,7 @@ class AgentClient:
         except Exception as e:
             raise SDKException.client_create(e)
 
-    def create_thread(self, attributes: Optional[Dict[str, str]] = None) -> str:
+    def create_thread(self) -> str:
         """创建会话 / Create thread"""
         try:
             variables = cms_models.CreateThreadRequestVariables(
@@ -110,7 +110,6 @@ class AgentClient:
             request = cms_models.CreateThreadRequest(
                 title=f"Chat-{int(time.time())}",
                 variables=variables,
-                attributes=attributes,
             )
             response = self._client.create_thread(self.config.employee_name, request)
 

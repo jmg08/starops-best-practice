@@ -17,7 +17,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from ..client import AgentClient, Config, SDKException, SimplePrinter
+from ..client import AgentClient, Config, SDKException, SimplePrinter, EventPrinter
 
 
 def parse_args():
@@ -64,7 +64,8 @@ async def process_file(client: AgentClient, file_path: str, output_dir: str, sim
 
         # Send request
         start_time = time.time()
-        printer = SimplePrinter()
+        simple_printer = SimplePrinter() if simple_mode else None
+        event_printer = None if simple_mode else EventPrinter(print_raw_body=False, print_parsed=True)
         event_index = 0
 
         async for event in client.chat_with_variables(thread_id, message, variables):
@@ -80,16 +81,19 @@ async def process_file(client: AgentClient, file_path: str, output_dir: str, sim
                 write_output(output_file, f"[EVENT {event_index}]\n{event.raw_json}\n")
 
             # Output
-            text = printer.process_event(event)
-            if text:
-                print(text, end="", flush=True)
+            if simple_mode:
+                text = simple_printer.process_event(event)
+                if text:
+                    print(text, end="", flush=True)
+            else:
+                event_printer.print_event(event, event_index)
 
         elapsed = time.time() - start_time
         print()
 
         # Write final result
-        if simple_mode:
-            final_text = printer.get_final_text()
+        if simple_mode and simple_printer:
+            final_text = simple_printer.get_final_text()
             write_output(output_file, f"\n# Final Result:\n{final_text}")
             print(f"📄 最终文本:\n{final_text}")
 
