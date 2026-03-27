@@ -38,12 +38,17 @@ Supports multi-turn conversation with context preservation.
 ### chat-from-file - Load Requests from File
 
 ```bash
-# Process single file
+# Process single file (default: shows detailed event information)
 npm run chat-from-file -- -file ../../requests/cms/entity.json
 
 # Batch process directory
 npm run chat-from-file -- -dir ../../requests/cms/
+
+# Simple mode (text output only)
+npm run chat-from-file -- -file ../../requests/cms/entity.json -simple
 ```
+
+By default uses `EventPrinter` to display detailed SSE event information (role, content, tool calls, agent calls, duration, etc.). Use `-simple` to switch to `SimplePrinter` for text-only output.
 
 ### chat-interactive - Interactive Event Handling
 

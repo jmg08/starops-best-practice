@@ -38,12 +38,17 @@ npm run chat
 ### chat-from-file - 从文件加载请求
 
 ```bash
-# 处理单个文件
+# 处理单个文件（默认显示每个事件的详细信息）
 npm run chat-from-file -- -file ../../requests/cms/entity.json
 
 # 批量处理目录
 npm run chat-from-file -- -dir ../../requests/cms/
+
+# 简洁模式（仅输出最终文本）
+npm run chat-from-file -- -file ../../requests/cms/entity.json -simple
 ```
+
+默认使用 `EventPrinter` 打印每个 SSE 事件的详细信息（角色、内容、工具调用、Agent 调用、耗时等），`-simple` 模式使用 `SimplePrinter` 仅输出最终文本。
 
 ### chat-interactive - 交互事件处理
 

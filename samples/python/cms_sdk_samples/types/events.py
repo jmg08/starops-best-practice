@@ -38,6 +38,17 @@ class ItemTool:
 
 
 @dataclass
+class ItemAgent:
+    """子 Agent 调用详情 / Sub agent call details"""
+    id: str = ""
+    name: str = ""
+    call_id: str = ""
+    status: Optional[ItemStatus] = None
+    inputs: List[ItemContent] = field(default_factory=list)
+    results: List[ItemContent] = field(default_factory=list)
+
+
+@dataclass
 class MessageItem:
     """消息条目 / Message item"""
     parent_call_id: str = ""
@@ -46,5 +57,6 @@ class MessageItem:
     timestamp: str = ""
     contents: List[ItemContent] = field(default_factory=list)
     tools: List[ItemTool] = field(default_factory=list)
+    agents: List[ItemAgent] = field(default_factory=list)
     events: List[ItemEvent] = field(default_factory=list)
     artifacts: List[Dict[str, Any]] = field(default_factory=list)

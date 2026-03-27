@@ -26,6 +26,8 @@ class ChatEvent:
     status_code: int = 0
     is_done: bool = False
     error: Optional[Exception] = None
+    id: Optional[str] = None
+    event: Optional[str] = None
 
     @classmethod
     def done(cls) -> "ChatEvent":
@@ -38,12 +40,23 @@ class ChatEvent:
     @classmethod
     def from_response(cls, body: Dict[str, Any], raw_json: str, status_code: int) -> "ChatEvent":
         is_done = cls._is_done_message(body)
-        return cls(body=body, raw_json=raw_json, status_code=status_code, is_done=is_done)
+        return cls(
+            body=body,
+            raw_json=raw_json,
+            status_code=status_code,
+            is_done=is_done,
+            id=body.get("id") if body else None,
+            event=body.get("event") if body else None,
+        )
 
     @staticmethod
     def _is_done_message(body: Optional[Dict[str, Any]]) -> bool:
-        if not body or "messages" not in body:
+        if not body:
             return False
+        # 优先使用 response 级别的 event 字段
+        if body.get("event") == "done":
+            return True
+        # fallback: 遍历 messages
         messages = body.get("messages", [])
         for msg in messages:
             if isinstance(msg, dict) and msg.get("type") == "done":

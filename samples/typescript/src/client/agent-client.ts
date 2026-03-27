@@ -14,6 +14,8 @@ const CMS20240330Client = (CMS20240330Module as any).default || CMS20240330Modul
 
 /** 聊天事件 / Chat event */
 export interface ChatEvent {
+  id?: string;
+  event?: string;
   body?: Record<string, unknown>;
   rawJson: string;
   statusCode: number;
@@ -37,7 +39,10 @@ export interface ThreadMessage {
   timestamp: string;
 }
 
-function isDoneMessage(body?: Record<string, unknown>): boolean {
+export function isDoneMessage(body?: Record<string, unknown>): boolean {
+  // 优先使用 response 级别的 event 字段
+  if (body?.event === 'done') return true;
+  // fallback: 遍历 messages
   if (!body || !body.messages) return false;
   const messages = body.messages as Array<Record<string, unknown>>;
   return messages.some((msg) => msg.type === 'done');
@@ -69,7 +74,7 @@ export class AgentClient {
   }
 
   /** 创建会话 / Create thread */
-  async createThread(): Promise<string> {
+  async createThread(attributes?: Record<string, string>): Promise<string> {
     try {
       const variables = new $CMS20240330.CreateThreadRequestVariables({
         workspace: this.config.workspace,
@@ -77,6 +82,7 @@ export class AgentClient {
       const request = new $CMS20240330.CreateThreadRequest({
         title: `Chat-${Math.floor(Date.now() / 1000)}`,
         variables,
+        attributes,
       });
 
       const response = await this.client.createThread(
@@ -150,6 +156,8 @@ export class AgentClient {
           const bodyObj = response.body as unknown as Record<string, unknown>;
           const rawJson = JSON.stringify(bodyObj);
           const event: ChatEvent = {
+            id: bodyObj?.id as string | undefined,
+            event: bodyObj?.event as string | undefined,
             body: bodyObj,
             rawJson,
             statusCode: 200,

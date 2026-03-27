@@ -25,6 +25,11 @@ public class SimplePrinter {
         if (event == null || event.getBody() == null) {
             return "";
         }
+        // 利用 event 字段快速跳过非文本事件
+        String eventType = event.getEvent();
+        if (eventType != null && !"text".equals(eventType) && !"task_finished".equals(eventType)) {
+            return "";
+        }
 
         StringBuilder extracted = new StringBuilder();
         JsonNode body = event.getBody();

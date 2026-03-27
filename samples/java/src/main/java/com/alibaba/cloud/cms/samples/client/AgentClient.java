@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,26 +14,37 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import com.aliyun.cms20240330.Client;
-import com.aliyun.cms20240330.models.CreateThreadRequest;
-import com.aliyun.cms20240330.models.CreateThreadResponse;
-import com.aliyun.cms20240330.models.GetThreadDataRequest;
-import com.aliyun.cms20240330.models.GetThreadDataResponse;
-import com.aliyun.cms20240330.models.GetThreadDataResponseBody;
-import com.aliyun.cms20240330.models.GetThreadResponse;
-import com.aliyun.cms20240330.models.ListThreadsRequest;
-import com.aliyun.cms20240330.models.ListThreadsResponse;
-import com.aliyun.teaopenapi.models.OpenApiRequest;
-import com.aliyun.teaopenapi.models.Params;
+import com.aliyun.auth.credentials.Credential;
+import com.aliyun.auth.credentials.provider.StaticCredentialProvider;
+import com.aliyun.sdk.gateway.pop.Configuration;
+import com.aliyun.sdk.gateway.pop.auth.SignatureVersion;
+import com.aliyun.sdk.service.cms20240330.AsyncClient;
+import com.aliyun.sdk.service.cms20240330.models.CreateChatRequest;
+import com.aliyun.sdk.service.cms20240330.models.CreateChatResponseBody;
+import com.aliyun.sdk.service.cms20240330.models.CreateThreadRequest;
+import com.aliyun.sdk.service.cms20240330.models.CreateThreadResponse;
+import com.aliyun.sdk.service.cms20240330.models.DeleteThreadRequest;
+import com.aliyun.sdk.service.cms20240330.models.GetThreadDataRequest;
+import com.aliyun.sdk.service.cms20240330.models.GetThreadDataResponse;
+import com.aliyun.sdk.service.cms20240330.models.GetThreadDataResponseBody;
+import com.aliyun.sdk.service.cms20240330.models.GetThreadRequest;
+import com.aliyun.sdk.service.cms20240330.models.GetThreadResponse;
+import com.aliyun.sdk.service.cms20240330.models.GetThreadResponseBody;
+import com.aliyun.sdk.service.cms20240330.models.ListThreadsRequest;
+import com.aliyun.sdk.service.cms20240330.models.ListThreadsResponse;
+import com.aliyun.sdk.service.cms20240330.models.ListThreadsResponseBody;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import darabonba.core.ResponseIterable;
+import darabonba.core.client.ClientOverrideConfiguration;
+
 /**
- * Agent 客户端
- * Agent client for CMS digital employee interactions
+ * Agent 客户端（异步 SDK 版本，支持 SSE 流式输出）
+ * Agent client using async SDK with SSE streaming support
  */
 public class AgentClient implements AutoCloseable {
-    private final Client client;
+    private final AsyncClient client;
     private final Config config;
     private final ObjectMapper objectMapper;
     private final ExecutorService executor;
@@ -43,13 +55,21 @@ public class AgentClient implements AutoCloseable {
         this.executor = Executors.newCachedThreadPool();
 
         try {
-            com.aliyun.teaopenapi.models.Config openApiConfig = new com.aliyun.teaopenapi.models.Config();
-            openApiConfig.setAccessKeyId(config.getAccessKeyId());
-            openApiConfig.setAccessKeySecret(config.getAccessKeySecret());
-            openApiConfig.setEndpoint(config.getEndpoint());
-            openApiConfig.setSignatureVersion("v3");
+            StaticCredentialProvider provider = StaticCredentialProvider.create(
+                    Credential.builder()
+                            .accessKeyId(config.getAccessKeyId())
+                            .accessKeySecret(config.getAccessKeySecret())
+                            .build());
 
-            this.client = new Client(openApiConfig);
+            this.client = AsyncClient.builder()
+                    .credentialsProvider(provider)
+                    .overrideConfiguration(
+                            ClientOverrideConfiguration.create()
+                                    .setEndpointOverride(config.getEndpoint()))
+                    .serviceConfiguration(
+                            Configuration.create()
+                                    .setSignatureVersion(SignatureVersion.V3))
+                    .build();
         } catch (Exception e) {
             throw SDKException.clientCreate(e);
         }
@@ -64,15 +84,27 @@ public class AgentClient implements AutoCloseable {
      * Create a new thread
      */
     public String createThread() throws SDKException {
+        return createThread(null);
+    }
+
+    /**
+     * 创建会话（支持自定义属性）
+     * Create a new thread with optional attributes
+     */
+    public String createThread(Map<String, String> attributes) throws SDKException {
         try {
-            CreateThreadRequest request = new CreateThreadRequest();
-            request.setTitle("Chat-" + Instant.now().getEpochSecond());
+            CreateThreadRequest.Builder builder = CreateThreadRequest.builder()
+                    .name(config.getEmployeeName())
+                    .title("Chat-" + Instant.now().getEpochSecond())
+                    .variables(CreateThreadRequest.Variables.builder()
+                            .workspace(config.getWorkspace())
+                            .build());
 
-            CreateThreadRequest.CreateThreadRequestVariables variables = new CreateThreadRequest.CreateThreadRequestVariables();
-            variables.setWorkspace(config.getWorkspace());
-            request.setVariables(variables);
+            if (attributes != null && !attributes.isEmpty()) {
+                builder.attributes(attributes);
+            }
 
-            CreateThreadResponse response = client.createThread(config.getEmployeeName(), request);
+            CreateThreadResponse response = client.createThread(builder.build()).get();
 
             if (response.getBody() == null || response.getBody().getThreadId() == null) {
                 throw new SDKException(ErrorCode.THREAD_CREATE, "无效响应: 缺少ThreadID");
@@ -85,7 +117,6 @@ public class AgentClient implements AutoCloseable {
             throw SDKException.threadCreate(e);
         }
     }
-
 
     /**
      * 开始 SSE 对话（基础版本）
@@ -102,15 +133,12 @@ public class AgentClient implements AutoCloseable {
     }
 
     /**
-     * 开始对话（支持自定义 variables）
-     * Start chat with custom variables
-     *
-     * 通过 callApi 以 bodyType="string" 发送请求，直接读取 SSE 流文本，避免 JSON 解析错误。
-     * Uses callApi with bodyType="string" to read the raw SSE stream, avoiding JSON parse errors.
+     * 开始对话（支持自定义 variables，使用异步 SDK 的 SSE 流式迭代）
+     * Start chat with custom variables using async SDK's SSE streaming
      */
     public BlockingQueue<ChatEvent> chatWithVariables(String threadId, String message, Map<String, Object> variables) {
         BlockingQueue<ChatEvent> events = new LinkedBlockingQueue<>();
-        
+
         final Map<String, Object> finalVariables = variables != null ? new HashMap<>(variables) : new HashMap<>();
         finalVariables.putIfAbsent("workspace", config.getWorkspace());
         finalVariables.putIfAbsent("region", config.getRegion());
@@ -120,50 +148,45 @@ public class AgentClient implements AutoCloseable {
 
         executor.submit(() -> {
             try {
-                // Build request body
-                Map<String, Object> body = new LinkedHashMap<>();
-                body.put("action", "create");
-                body.put("threadId", threadId);
-                body.put("digitalEmployeeName", config.getEmployeeName());
-                body.put("variables", finalVariables);
+                // 构建消息内容
+                CreateChatRequest.Contents content = CreateChatRequest.Contents.builder()
+                        .type("text")
+                        .value(message)
+                        .build();
 
-                Map<String, Object> contentMap = new LinkedHashMap<>();
-                contentMap.put("type", "text");
-                contentMap.put("value", message);
+                CreateChatRequest.Messages msg = CreateChatRequest.Messages.builder()
+                        .role("user")
+                        .contents(Collections.singletonList(content))
+                        .build();
 
-                Map<String, Object> msgMap = new LinkedHashMap<>();
-                msgMap.put("role", "user");
-                msgMap.put("contents", Collections.singletonList(contentMap));
+                CreateChatRequest request = CreateChatRequest.builder()
+                        .regionId(config.getRegion())
+                        .action("create")
+                        .threadId(threadId)
+                        .digitalEmployeeName(config.getEmployeeName())
+                        .messages(Collections.singletonList(msg))
+                        .variables(finalVariables)
+                        .build();
 
-                body.put("messages", Collections.singletonList(msgMap));
+                // 使用 SSE 流式迭代
+                ResponseIterable<CreateChatResponseBody> iterable =
+                        client.createChatWithResponseIterable(request);
 
-                OpenApiRequest openApiRequest = OpenApiRequest.build(Map.of(
-                    "headers", new HashMap<String, String>(),
-                    "body", com.aliyun.openapiutil.Client.parseToMap(body)
-                ));
+                Iterator<CreateChatResponseBody> iterator = iterable.iterator();
+                while (iterator.hasNext()) {
+                    CreateChatResponseBody body = iterator.next();
+                    if (body != null) {
+                        // 将 ResponseBody 转为 JsonNode 以保持与现有 ChatEvent 兼容
+                        Map<String, Object> map = bodyToMap(body);
+                        String jsonStr = objectMapper.writeValueAsString(map);
+                        JsonNode jsonNode = objectMapper.readTree(jsonStr);
+                        ChatEvent event = ChatEvent.fromResponse(jsonNode, jsonStr, 200);
+                        events.put(event);
 
-                // bodyType="string" 让 tea-openapi 用 readAsString 读取响应，不做 JSON 解析
-                Params params = Params.build(Map.of(
-                    "action", "CreateChat",
-                    "version", "2024-03-30",
-                    "protocol", "HTTPS",
-                    "pathname", "/chat",
-                    "method", "POST",
-                    "authType", "AK",
-                    "style", "ROA",
-                    "reqBodyType", "json",
-                    "bodyType", "string"
-                ));
-
-                com.aliyun.teautil.models.RuntimeOptions runtime = new com.aliyun.teautil.models.RuntimeOptions();
-                runtime.setConnectTimeout(30000);
-                runtime.setReadTimeout(300000);
-
-                Map<String, ?> result = client.callApi(params, openApiRequest, runtime);
-                String sseText = (String) result.get("body");
-
-                if (sseText != null && !sseText.isEmpty()) {
-                    parseSSEEvents(sseText, events);
+                        if (event.isDone()) {
+                            return;
+                        }
+                    }
                 }
 
                 events.put(ChatEvent.done());
@@ -183,27 +206,39 @@ public class AgentClient implements AutoCloseable {
     }
 
     /**
-     * 从 SSE 文本中解析事件
-     * Parse SSE events from raw SSE text
+     * 将 CreateChatResponseBody 转为 Map
+     * Convert CreateChatResponseBody to Map for JSON serialization
      */
-    private void parseSSEEvents(String sseText, BlockingQueue<ChatEvent> events) throws InterruptedException {
-        String[] lines = sseText.split("\n");
-        for (String line : lines) {
-            String trimmed = line.trim();
-            if (trimmed.startsWith("data:")) {
-                String jsonStr = trimmed.substring(5).trim();
-                if (jsonStr.isEmpty() || "[DONE]".equals(jsonStr)) {
-                    continue;
-                }
-                try {
-                    JsonNode jsonNode = objectMapper.readTree(jsonStr);
-                    ChatEvent event = ChatEvent.fromResponse(jsonNode, jsonStr, 200);
-                    events.put(event);
-                } catch (Exception ignored) {
-                    // Skip malformed JSON lines
-                }
-            }
+    private Map<String, Object> bodyToMap(CreateChatResponseBody body) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        if (body.getRequestId() != null) {
+            map.put("requestId", body.getRequestId());
         }
+        if (body.getTraceId() != null) {
+            map.put("traceId", body.getTraceId());
+        }
+        if (body.getMessages() != null) {
+            List<Map<String, Object>> msgList = new ArrayList<>();
+            for (CreateChatResponseBody.Messages msg : body.getMessages()) {
+                Map<String, Object> msgMap = new LinkedHashMap<>();
+                if (msg.getRole() != null) msgMap.put("role", msg.getRole());
+                if (msg.getType() != null) msgMap.put("type", msg.getType());
+                if (msg.getCallId() != null) msgMap.put("callId", msg.getCallId());
+                if (msg.getParentCallId() != null) msgMap.put("parentCallId", msg.getParentCallId());
+                if (msg.getSeq() != null) msgMap.put("seq", msg.getSeq());
+                if (msg.getTimestamp() != null) msgMap.put("timestamp", msg.getTimestamp());
+                if (msg.getVersion() != null) msgMap.put("version", msg.getVersion());
+                if (msg.getDetail() != null) msgMap.put("detail", msg.getDetail());
+                if (msg.getContents() != null) msgMap.put("contents", msg.getContents());
+                if (msg.getArtifacts() != null) msgMap.put("artifacts", msg.getArtifacts());
+                if (msg.getTools() != null) msgMap.put("tools", msg.getTools());
+                if (msg.getAgents() != null) msgMap.put("agents", msg.getAgents());
+                if (msg.getEvents() != null) msgMap.put("events", msg.getEvents());
+                msgList.add(msgMap);
+            }
+            map.put("messages", msgList);
+        }
+        return map;
     }
 
     /**
@@ -246,7 +281,6 @@ public class AgentClient implements AutoCloseable {
         return timedEvents;
     }
 
-
     /**
      * 列出会话
      * List threads
@@ -256,10 +290,12 @@ public class AgentClient implements AutoCloseable {
             if (pageSize <= 0) pageSize = 20;
             if (pageSize > 100) pageSize = 100;
 
-            ListThreadsRequest request = new ListThreadsRequest();
-            request.setMaxResults((long) pageSize);
+            ListThreadsRequest request = ListThreadsRequest.builder()
+                    .name(config.getEmployeeName())
+                    .maxResults((long) pageSize)
+                    .build();
 
-            ListThreadsResponse response = client.listThreads(config.getEmployeeName(), request);
+            ListThreadsResponse response = client.listThreads(request).get();
 
             if (response.getBody() == null) {
                 throw new SDKException(ErrorCode.PARSE_ERROR, "无效响应: 响应体为空")
@@ -267,8 +303,9 @@ public class AgentClient implements AutoCloseable {
             }
 
             List<ThreadInfo> threads = new ArrayList<>();
-            if (response.getBody().getThreads() != null) {
-                for (var t : response.getBody().getThreads()) {
+            ListThreadsResponseBody body = response.getBody();
+            if (body.getThreads() != null) {
+                for (ListThreadsResponseBody.Threads t : body.getThreads()) {
                     threads.add(new ThreadInfo(
                             t.getThreadId(),
                             t.getTitle(),
@@ -279,7 +316,7 @@ public class AgentClient implements AutoCloseable {
                 }
             }
 
-            long total = response.getBody().getTotal() != null ? response.getBody().getTotal() : 0;
+            long total = body.getTotal() != null ? body.getTotal() : 0;
             return new ListThreadsResult(threads, total);
         } catch (SDKException e) {
             throw e;
@@ -297,7 +334,12 @@ public class AgentClient implements AutoCloseable {
         validateThreadId(threadId);
 
         try {
-            GetThreadResponse response = client.getThread(config.getEmployeeName(), threadId);
+            GetThreadRequest request = GetThreadRequest.builder()
+                    .name(config.getEmployeeName())
+                    .threadId(threadId)
+                    .build();
+
+            GetThreadResponse response = client.getThread(request).get();
 
             if (response.getBody() == null) {
                 throw new SDKException(ErrorCode.PARSE_ERROR, "无效响应: 响应体为空")
@@ -305,12 +347,13 @@ public class AgentClient implements AutoCloseable {
                         .withSuggestion("请稍后重试");
             }
 
+            GetThreadResponseBody body = response.getBody();
             return new ThreadInfo(
-                    response.getBody().getThreadId(),
-                    response.getBody().getTitle(),
-                    response.getBody().getStatus(),
-                    response.getBody().getCreateTime(),
-                    response.getBody().getUpdateTime()
+                    body.getThreadId(),
+                    body.getTitle(),
+                    body.getStatus(),
+                    body.getCreateTime(),
+                    body.getUpdateTime()
             );
         } catch (SDKException e) {
             throw e;
@@ -332,7 +375,12 @@ public class AgentClient implements AutoCloseable {
         validateThreadId(threadId);
 
         try {
-            client.deleteThread(config.getEmployeeName(), threadId);
+            DeleteThreadRequest request = DeleteThreadRequest.builder()
+                    .name(config.getEmployeeName())
+                    .threadId(threadId)
+                    .build();
+
+            client.deleteThread(request).get();
         } catch (Exception e) {
             if (isThreadNotFoundError(e)) {
                 throw SDKException.threadNotFound(threadId);
@@ -354,10 +402,13 @@ public class AgentClient implements AutoCloseable {
             if (limit <= 0) limit = 50;
             if (limit > 100) limit = 100;
 
-            GetThreadDataRequest request = new GetThreadDataRequest();
-            request.setMaxResults((long) limit);
+            GetThreadDataRequest request = GetThreadDataRequest.builder()
+                    .name(config.getEmployeeName())
+                    .threadId(threadId)
+                    .maxResults((long) limit)
+                    .build();
 
-            GetThreadDataResponse response = client.getThreadData(config.getEmployeeName(), threadId, request);
+            GetThreadDataResponse response = client.getThreadData(request).get();
 
             if (response.getBody() == null) {
                 throw new SDKException(ErrorCode.PARSE_ERROR, "无效响应: 响应体为空")
@@ -365,20 +416,20 @@ public class AgentClient implements AutoCloseable {
                         .withSuggestion("请稍后重试");
             }
 
-            // Strategy: prefer system Result over assistant streaming messages
+            GetThreadDataResponseBody body = response.getBody();
+
             // 策略：优先使用 system Result，而不是 assistant 流式消息
             Map<String, ThreadMessage> messageMap = new LinkedHashMap<>();
-            
-            // Check if any system Result exists
+
             // 检查是否存在 system Result
             boolean hasSystemResult = false;
-            if (response.getBody().getData() != null) {
+            if (body.getData() != null) {
                 outer:
-                for (var data : response.getBody().getData()) {
+                for (GetThreadDataResponseBody.Data data : body.getData()) {
                     if (data.getMessages() != null) {
-                        for (var msg : data.getMessages()) {
+                        for (GetThreadDataResponseBody.Messages msg : data.getMessages()) {
                             if ("system".equals(msg.getRole()) && msg.getArtifacts() != null) {
-                                for (var artifact : msg.getArtifacts()) {
+                                for (Map<String, ?> artifact : msg.getArtifacts()) {
                                     if (artifact != null && "Result".equals(artifact.get("name"))) {
                                         hasSystemResult = true;
                                         break outer;
@@ -390,20 +441,19 @@ public class AgentClient implements AutoCloseable {
                 }
             }
 
-            // Process messages
-            if (response.getBody().getData() != null) {
-                for (var data : response.getBody().getData()) {
+            // 处理消息
+            if (body.getData() != null) {
+                for (GetThreadDataResponseBody.Data data : body.getData()) {
                     if (data.getMessages() != null) {
-                        for (var msg : data.getMessages()) {
+                        for (GetThreadDataResponseBody.Messages msg : data.getMessages()) {
                             String role = msg.getRole() != null ? msg.getRole() : "";
                             String timestamp = msg.getTimestamp() != null ? msg.getTimestamp() : "";
-                            
-                            // Skip assistant streaming messages if system Result exists
+
+                            // 如果存在 system Result，跳过 assistant 流式消息
                             if ("assistant".equals(role) && hasSystemResult) {
                                 continue;
                             }
-                            
-                            // Use different key strategy based on role
+
                             String key;
                             if ("user".equals(role)) {
                                 key = "user-" + timestamp;
@@ -413,7 +463,7 @@ public class AgentClient implements AutoCloseable {
                                 String callId = msg.getCallId() != null ? msg.getCallId() : "";
                                 key = "assistant-" + callId;
                             }
-                            
+
                             String content = extractMessageContent(msg);
                             if (content == null || content.isEmpty()) {
                                 continue;
@@ -427,7 +477,6 @@ public class AgentClient implements AutoCloseable {
                                         existing.getTimestamp()
                                 ));
                             } else {
-                                // For system messages, display as assistant role
                                 String displayRole = "system".equals(role) ? "assistant" : role;
                                 messageMap.put(key, new ThreadMessage(displayRole, content, timestamp));
                             }
@@ -448,7 +497,6 @@ public class AgentClient implements AutoCloseable {
                     .withSuggestion("请检查会话 ID 是否正确");
         }
     }
-
 
     private void validateThreadId(String threadId) throws SDKException {
         if (threadId == null || threadId.isEmpty()) {
@@ -472,14 +520,14 @@ public class AgentClient implements AutoCloseable {
                errStr.contains("InvalidThreadId") || errStr.contains("does not exist");
     }
 
-    private String extractMessageContent(GetThreadDataResponseBody.GetThreadDataResponseBodyDataMessages msg) {
+    @SuppressWarnings("unchecked")
+    private String extractMessageContent(GetThreadDataResponseBody.Messages msg) {
         if (msg == null) return "";
 
-        // 1. Try to extract from contents (streaming text chunks)
-        // 尝试从 contents 提取（流式文本块）
+        // 1. 尝试从 contents 提取（流式文本块）
         if (msg.getContents() != null) {
             StringBuilder result = new StringBuilder();
-            for (var content : msg.getContents()) {
+            for (Map<String, ?> content : msg.getContents()) {
                 if (content != null) {
                     Object type = content.get("type");
                     Object value = content.get("value");
@@ -493,10 +541,9 @@ public class AgentClient implements AutoCloseable {
             }
         }
 
-        // 2. Try to extract from artifacts (final result)
-        // 尝试从 artifacts 提取（最终结果）
+        // 2. 尝试从 artifacts 提取（最终结果）
         if (msg.getArtifacts() != null) {
-            for (var artifact : msg.getArtifacts()) {
+            for (Map<String, ?> artifact : msg.getArtifacts()) {
                 if (artifact != null && "Result".equals(artifact.get("name"))) {
                     Object partsObj = artifact.get("parts");
                     if (partsObj instanceof List) {
@@ -523,6 +570,9 @@ public class AgentClient implements AutoCloseable {
 
     public void shutdown() {
         executor.shutdown();
+        try {
+            client.close();
+        } catch (Exception ignored) {}
     }
 
     @Override
