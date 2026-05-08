@@ -20,7 +20,7 @@ mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.Chat"
 
 | 变量 | 必需 | 说明 |
 |-----|------|-----|
-| VIBEOPS_ENDPOINT | ✅ | CMS API 端点，格式: `cms.{region-id}.aliyuncs.com` |
+| VIBEOPS_ENDPOINT | ✅ | StarOps API 端点，格式: `starops.{region-id}.aliyuncs.com` |
 | ALIBABA_CLOUD_ACCESS_KEY_ID | ✅ | Access Key ID |
 | ALIBABA_CLOUD_ACCESS_KEY_SECRET | ✅ | Access Key Secret |
 | VIBEOPS_EMPLOYEE_NAME | ❌ | 数字员工名称 (默认 default) |

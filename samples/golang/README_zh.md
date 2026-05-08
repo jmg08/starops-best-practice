@@ -76,7 +76,7 @@ samples/golang/
 
 2. **设置环境变量**
    ```bash
-   export VIBEOPS_ENDPOINT="cms.cn-hongkong.aliyuncs.com"
+   export VIBEOPS_ENDPOINT="starops.cn-hongkong.aliyuncs.com"
    export VIBEOPS_REGION="cn-hongkong"
    export ALIBABA_CLOUD_ACCESS_KEY_ID="your-access-key-id"
    export ALIBABA_CLOUD_ACCESS_KEY_SECRET="your-access-key-secret"
@@ -92,7 +92,7 @@ samples/golang/
 
 | 变量名 | 必需 | 描述 | 示例 |
 |--------|------|------|------|
-| `VIBEOPS_ENDPOINT` | ✅ | CMS API 端点，格式: `cms.{region-id}.aliyuncs.com` | `cms.cn-hongkong.aliyuncs.com` |
+| `VIBEOPS_ENDPOINT` | ✅ | StarOps API 端点，格式: `starops.{region-id}.aliyuncs.com` | `starops.cn-hongkong.aliyuncs.com` |
 | `ALIBABA_CLOUD_ACCESS_KEY_ID` | ✅ | 阿里云 Access Key ID | |
 | `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | ✅ | 阿里云 Access Key Secret | |
 | `VIBEOPS_REGION` | ❌ | 地域（需与端点匹配） | `cn-hongkong` |
@@ -851,7 +851,7 @@ variables := map[string]interface{}{
 
 ## SDK 依赖
 
-- `github.com/alibabacloud-go/cms-20240330/v6` - 阿里云 CMS SDK
+- `github.com/alibabacloud-go/starops-20260428` - 阿里云 StarOps SDK
 - `github.com/alibabacloud-go/darabonba-openapi/v2` - OpenAPI 客户端
 - `github.com/alibabacloud-go/tea` - Tea 运行时
 

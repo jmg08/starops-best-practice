@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	cms "github.com/alibabacloud-go/cms-20240330/v6/client"
+	cms "github.com/alibabacloud-go/starops-20260428/client"
 	"github.com/alibabacloud-go/tea/dara"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"

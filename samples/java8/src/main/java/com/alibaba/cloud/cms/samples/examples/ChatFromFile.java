@@ -16,6 +16,7 @@ import java.util.concurrent.BlockingQueue;
 import com.alibaba.cloud.cms.samples.client.AgentClient;
 import com.alibaba.cloud.cms.samples.client.ChatEvent;
 import com.alibaba.cloud.cms.samples.client.Config;
+import com.alibaba.cloud.cms.samples.client.EventPrinter;
 import com.alibaba.cloud.cms.samples.client.SDKException;
 import com.alibaba.cloud.cms.samples.client.SimplePrinter;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -134,7 +135,12 @@ public class ChatFromFile {
             long startTime = System.currentTimeMillis();
             BlockingQueue<ChatEvent> events = client.chatWithVariables(threadId, message, variables);
 
-            SimplePrinter printer = new SimplePrinter();
+            // 与 Java 11 蓝本一致：根据 simpleMode 选择打印器
+            // - simpleMode=true:  SimplePrinter，仅输出最终的 system Result（看起来"一次性刷出"）
+            // - simpleMode=false: EventPrinter，逐 SSE 事件输出（看起来"分段流式"）
+            // Aligned with Java 11 baseline: select printer based on simpleMode
+            SimplePrinter simplePrinter = simpleMode ? new SimplePrinter() : null;
+            EventPrinter eventPrinter = simpleMode ? null : new EventPrinter(false, true);
             int eventIndex = 0;
 
             while (true) {
@@ -155,9 +161,13 @@ public class ChatFromFile {
                     writeOutput(outputFile, "[EVENT " + eventIndex + "]\n" + event.getRawJson() + "\n");
                 }
 
-                String text = printer.processEvent(event);
-                if (!text.isEmpty()) {
-                    System.out.print(text);
+                if (simpleMode) {
+                    String text = simplePrinter.processEvent(event);
+                    if (!text.isEmpty()) {
+                        System.out.print(text);
+                    }
+                } else {
+                    eventPrinter.printEvent(event, eventIndex);
                 }
 
                 if (event.isDone()) {
@@ -169,7 +179,7 @@ public class ChatFromFile {
             System.out.println();
 
             if (simpleMode) {
-                String finalText = printer.getFinalText();
+                String finalText = simplePrinter.getFinalText();
                 writeOutput(outputFile, "\n# Final Result:\n" + finalText);
                 System.out.printf("📄 最终文本:%n%s%n", finalText);
             }

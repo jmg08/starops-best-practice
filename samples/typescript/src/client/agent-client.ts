@@ -3,14 +3,14 @@
  * CMS SDK Agent 客户端
  */
 
-import CMS20240330Module, * as $CMS20240330 from '@alicloud/cms20240330';
+import Starops20260428Module, * as $Starops20260428 from '@alicloud/starops20260428';
 import * as $OpenApi from '@alicloud/openapi-client';
 import * as $dara from '@darabonba/typescript';
 import { Config } from './config.js';
 import { SDKException, ErrorCode } from './errors.js';
 
 // Handle ESM/CJS interop
-const CMS20240330Client = (CMS20240330Module as any).default || CMS20240330Module;
+const Starops20260428Client = (Starops20260428Module as any).default || Starops20260428Module;
 
 /** 聊天事件 / Chat event */
 export interface ChatEvent {
@@ -63,7 +63,7 @@ export class AgentClient {
         endpoint: config.endpoint,
         signatureVersion: 'v3',
       });
-      this.client = new CMS20240330Client(openApiConfig);
+      this.client = new Starops20260428Client(openApiConfig);
     } catch (e) {
       throw SDKException.clientCreate(e as Error);
     }
@@ -76,10 +76,10 @@ export class AgentClient {
   /** 创建会话 / Create thread */
   async createThread(attributes?: Record<string, string>): Promise<string> {
     try {
-      const variables = new $CMS20240330.CreateThreadRequestVariables({
+      const variables = new $Starops20260428.CreateThreadRequestVariables({
         workspace: this.config.workspace,
       });
-      const request = new $CMS20240330.CreateThreadRequest({
+      const request = new $Starops20260428.CreateThreadRequest({
         title: `Chat-${Math.floor(Date.now() / 1000)}`,
         variables,
         attributes,
@@ -120,11 +120,11 @@ export class AgentClient {
     variables?: Record<string, unknown>
   ): AsyncIterable<ChatEvent> {
     try {
-      const content = new $CMS20240330.CreateChatRequestMessagesContents({
+      const content = new $Starops20260428.CreateChatRequestMessagesContents({
         type: 'text',
         value: message,
       });
-      const msg = new $CMS20240330.CreateChatRequestMessages({
+      const msg = new $Starops20260428.CreateChatRequestMessages({
         role: 'user',
         contents: [content],
       });
@@ -137,7 +137,7 @@ export class AgentClient {
       vars.timeZone = vars.timeZone || 'Asia/Shanghai';
       vars.timeStamp = vars.timeStamp || String(Math.floor(Date.now() / 1000));
 
-      const request = new $CMS20240330.CreateChatRequest({
+      const request = new $Starops20260428.CreateChatRequest({
         action: 'create',
         threadId,
         digitalEmployeeName: this.config.employeeName,
@@ -210,7 +210,7 @@ export class AgentClient {
       if (pageSize <= 0) pageSize = 20;
       if (pageSize > 100) pageSize = 100;
 
-      const request = new $CMS20240330.ListThreadsRequest({
+      const request = new $Starops20260428.ListThreadsRequest({
         maxResults: pageSize,
       });
 
@@ -298,7 +298,7 @@ export class AgentClient {
       if (limit <= 0) limit = 50;
       if (limit > 100) limit = 100;
 
-      const request = new $CMS20240330.GetThreadDataRequest({
+      const request = new $Starops20260428.GetThreadDataRequest({
         maxResults: limit,
       });
 

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	cms "github.com/alibabacloud-go/cms-20240330/v6/client"
+	cms "github.com/alibabacloud-go/starops-20260428/client"
 	"github.com/alibabacloud-go/tea/dara"
 )
 
@@ -131,7 +131,8 @@ func (c *AgentClient) GetThread(ctx context.Context, threadID string) (*ThreadIn
 
 	// 调用 API
 	// Call API
-	resp, err := c.client.GetThread(dara.String(c.config.EmployeeName), dara.String(threadID))
+	getThreadReq := &cms.GetThreadRequest{}
+	resp, err := c.client.GetThread(dara.String(c.config.EmployeeName), dara.String(threadID), getThreadReq)
 	if err != nil {
 		// 检查是否为会话不存在错误
 		// Check if it's a thread not found error
@@ -181,7 +182,8 @@ func (c *AgentClient) DeleteThread(ctx context.Context, threadID string) error {
 
 	// 调用 API
 	// Call API
-	_, err := c.client.DeleteThread(dara.String(c.config.EmployeeName), dara.String(threadID))
+	deleteThreadReq := &cms.DeleteThreadRequest{}
+	_, err := c.client.DeleteThread(dara.String(c.config.EmployeeName), dara.String(threadID), deleteThreadReq)
 	if err != nil {
 		// 检查是否为会话不存在错误
 		// Check if it's a thread not found error

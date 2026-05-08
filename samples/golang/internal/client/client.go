@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	cms "github.com/alibabacloud-go/cms-20240330/v6/client"
+	cms "github.com/alibabacloud-go/starops-20260428/client"
 	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
 	"github.com/alibabacloud-go/tea/dara"
 )
@@ -85,7 +85,7 @@ func NewAgentClient(cfg *Config) (*AgentClient, error) {
 
 	cmsClient, err := cms.NewClient(openApiConfig)
 	if err != nil {
-		return nil, fmt.Errorf("创建CMS客户端失败: %w", err)
+		return nil, fmt.Errorf("创建StarOps客户端失败: %w", err)
 	}
 
 	return &AgentClient{

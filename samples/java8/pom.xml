@@ -22,18 +22,19 @@
     </properties>
 
     <dependencies>
-        <!-- Alibaba Cloud CMS SDK -->
+        <!-- Alibaba Cloud StarOps Async SDK (与 samples/java 同款，支持真·SSE 流式) -->
+        <!-- 异步 SDK 实际运行需要 JDK 8u251+；source level 保持 1.8 演示老项目兼容场景 -->
         <dependency>
             <groupId>com.aliyun</groupId>
-            <artifactId>cms20240330</artifactId>
-            <version>6.2.1</version>
+            <artifactId>alibabacloud-starops20260428</artifactId>
+            <version>1.0.0</version>
         </dependency>
 
-        <!-- Alibaba Cloud Tea (for TeaException SSE handling) -->
+        <!-- HTTP client for async SDK -->
         <dependency>
             <groupId>com.aliyun</groupId>
-            <artifactId>tea</artifactId>
-            <version>1.4.1</version>
+            <artifactId>aliyun-http-apache</artifactId>
+            <version>0.2.15-beta</version>
         </dependency>
 
         <!-- JSON Processing -->

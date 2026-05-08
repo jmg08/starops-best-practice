@@ -20,7 +20,7 @@ npm run chat
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| VIBEOPS_ENDPOINT | ✅ | CMS API endpoint, format: `cms.{region-id}.aliyuncs.com` |
+| VIBEOPS_ENDPOINT | ✅ | StarOps API endpoint, format: `starops.{region-id}.aliyuncs.com` |
 | ALIBABA_CLOUD_ACCESS_KEY_ID | ✅ | Access Key ID |
 | ALIBABA_CLOUD_ACCESS_KEY_SECRET | ✅ | Access Key Secret |
 | VIBEOPS_EMPLOYEE_NAME | ❌ | Digital employee name (default: default) |
