@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/vibeops/samples/golang/internal/client"
+	"github.com/vibeops/samples/golang/types"
 )
 
 // RequestFile JSON 请求文件结构
@@ -158,7 +159,6 @@ func processFile(agentClient *client.AgentClient, file string) {
 
 	// 发送请求
 	startTime := time.Now()
-	events := agentClient.ChatWithVariables(ctx, threadID, message, reqFile.Variables)
 
 	// 处理响应
 	var simplePrinter *client.SimplePrinter
@@ -169,31 +169,11 @@ func processFile(agentClient *client.AgentClient, file string) {
 		eventPrinter = client.NewEventPrinter(false, true)
 	}
 
-	eventIndex := 0
-	for event := range events {
-		eventIndex++
+	// 初始化交互处理器
+	interactiveHandler := client.NewInteractiveHandler(agentClient, 0)
 
-		if event.Error != nil {
-			fmt.Printf("❌ 错误: %v\n", event.Error)
-			writeOutput(outputFile, fmt.Sprintf("[ERROR] %v\n", event.Error))
-			continue
-		}
-
-		// 写入原始事件
-		if event.RawJSON != "" {
-			writeOutput(outputFile, fmt.Sprintf("[EVENT %d]\n%s\n\n", eventIndex, event.RawJSON))
-		}
-
-		// 输出
-		if *simpleMode {
-			text := simplePrinter.ProcessEvent(event)
-			if text != "" {
-				fmt.Print(text)
-			}
-		} else {
-			eventPrinter.PrintEvent(event, eventIndex)
-		}
-	}
+	events := agentClient.ChatWithVariables(ctx, threadID, message, reqFile.Variables)
+	processEvents(events, simplePrinter, eventPrinter, interactiveHandler, outputFile, ctx, threadID, reqFile.Variables)
 
 	elapsed := time.Since(startTime)
 	fmt.Println()
@@ -208,6 +188,100 @@ func processFile(agentClient *client.AgentClient, file string) {
 	writeOutput(outputFile, fmt.Sprintf("\n# Duration: %v\n", elapsed))
 	fmt.Printf("⏱️  耗时: %v\n", elapsed)
 	fmt.Printf("📁 输出: %s\n", outputFile.Name())
+}
+
+// processEvents 处理 SSE 事件流，支持交互事件检测和流恢复
+func processEvents(
+	events <-chan *client.ChatEvent,
+	simplePrinter *client.SimplePrinter,
+	eventPrinter *client.EventPrinter,
+	handler *client.InteractiveHandler,
+	outputFile *os.File,
+	ctx context.Context,
+	threadID string,
+	variables map[string]any,
+) {
+	eventIndex := 0
+	for events != nil {
+		event, ok := <-events
+		if !ok {
+			break
+		}
+		eventIndex++
+
+		if event.Error != nil {
+			fmt.Printf("❌ 错误: %v\n", event.Error)
+			writeOutput(outputFile, fmt.Sprintf("[ERROR] %v\n", event.Error))
+			continue
+		}
+
+		// 写入原始事件
+		if event.RawJSON != "" {
+			writeOutput(outputFile, fmt.Sprintf("[EVENT %d]\n%s\n\n", eventIndex, event.RawJSON))
+		}
+
+		// 检测交互事件
+		interactiveResp := extractInteractiveEvent(event, handler)
+		if interactiveResp != nil {
+			fmt.Printf("\n🔄 检测到交互事件，等待用户响应...\n")
+			events = handler.ResumeChat(ctx, threadID, interactiveResp, variables)
+			eventIndex = 0
+			continue
+		}
+
+		// 正常输出
+		if simplePrinter != nil {
+			text := simplePrinter.ProcessEvent(event)
+			if text != "" {
+				fmt.Print(text)
+			}
+		} else {
+			eventPrinter.PrintEvent(event, eventIndex)
+		}
+
+		if event.IsDone {
+			break
+		}
+	}
+}
+
+// extractInteractiveEvent 从 ChatEvent 中检测交互事件并处理用户响应
+// 返回 nil 表示没有交互事件
+func extractInteractiveEvent(event *client.ChatEvent, handler *client.InteractiveHandler) *client.InteractiveResponse {
+	if event.Body == nil || event.Body.Messages == nil {
+		return nil
+	}
+
+	// 解析 RawJSON 以获取结构化的 message 数据
+	var body struct {
+		Messages []types.MessageItem `json:"messages"`
+	}
+	if err := json.Unmarshal([]byte(event.RawJSON), &body); err != nil {
+		return nil
+	}
+
+	for _, msg := range body.Messages {
+		for _, evt := range msg.Events {
+			if evt.Type != types.EventTypeInteractive {
+				continue
+			}
+
+			// 处理交互事件
+			resp, err := handler.HandleEvent(context.Background(), evt)
+			if err != nil {
+				fmt.Printf("⚠️ 交互处理失败: %v\n", err)
+				return nil
+			}
+			if resp == nil {
+				return nil
+			}
+
+			// 填充 callId（从 MessageItem 获取）
+			resp.InteractionID = msg.CallID
+			return resp
+		}
+	}
+	return nil
 }
 
 func loadRequestFile(filePath string) (*RequestFile, error) {

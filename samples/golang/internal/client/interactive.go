@@ -25,11 +25,14 @@ type InteractiveHandler struct {
 }
 
 // InteractiveResponse 交互响应
-// 包含用户对交互事件的响应信息
+// 包含用户对交互事件的响应信息，以及构建 userInteractive API 请求所需的元数据
 type InteractiveResponse struct {
 	InteractionID string                 `json:"interactionId"`
 	Type          types.InteractionType  `json:"type"`
-	Response      map[string]any `json:"response"`
+	Response      map[string]any `json:"response"`       // 用户响应
+	Source        map[string]any `json:"source"`         // 交互事件来源（来自 payload）
+	ModifiedData  map[string]any `json:"modifiedData"`   // 交互数据（来自 payload data）
+	Decision      string         `json:"decision"`       // 用户决策: yes/no (user_ack), 选中值 (user_select), 输入文本 (user_input)
 }
 
 // NewInteractiveHandler 创建交互处理器
@@ -114,12 +117,24 @@ func (h *InteractiveHandler) HandleUserAck(ctx context.Context, payload *types.I
 	input = strings.TrimSpace(strings.ToLower(input))
 	confirmed := input == "y" || input == "yes" || input == "是" || input == ""
 
+	decision := "no"
+	if confirmed {
+		decision = "yes"
+	}
+
+	// 从 payload 提取 source 和 data
+	source := h.extractSource(payload)
+	modifiedData := h.extractData(payload)
+
 	return &InteractiveResponse{
 		InteractionID: interactionID,
 		Type:          types.InteractionTypeUserAck,
 		Response: map[string]any{
 			"confirmed": confirmed,
 		},
+		Source:       source,
+		ModifiedData: modifiedData,
+		Decision:     decision,
 	}, nil
 }
 
@@ -170,6 +185,9 @@ func (h *InteractiveHandler) HandleUserSelect(ctx context.Context, payload *type
 	// 获取选中的选项
 	selectedOption := options[selectedIndex-1]
 
+	// 提取决策值
+	decision := h.getOptionValue(selectedOption)
+
 	return &InteractiveResponse{
 		InteractionID: interactionID,
 		Type:          types.InteractionTypeUserSelect,
@@ -177,6 +195,9 @@ func (h *InteractiveHandler) HandleUserSelect(ctx context.Context, payload *type
 			"selectedIndex": selectedIndex - 1, // 0-based index
 			"selectedValue": selectedOption,
 		},
+		Source:       h.extractSource(payload),
+		ModifiedData: h.extractData(payload),
+		Decision:     decision,
 	}, nil
 }
 
@@ -221,12 +242,15 @@ func (h *InteractiveHandler) HandleUserInput(ctx context.Context, payload *types
 		Response: map[string]any{
 			"value": input,
 		},
+		Source:       h.extractSource(payload),
+		ModifiedData: h.extractData(payload),
+		Decision:     input,
 	}, nil
 }
 
 // ResumeChat 使用交互响应恢复对话
-// 将用户的交互响应发送给 Agent 以继续对话
-func (h *InteractiveHandler) ResumeChat(ctx context.Context, threadID string, response *InteractiveResponse) <-chan *ChatEvent {
+// 构建 userInteractive JSON 并通过 Interact API 发送给 Agent 以继续对话
+func (h *InteractiveHandler) ResumeChat(ctx context.Context, threadID string, response *InteractiveResponse, baseVariables map[string]any) <-chan *ChatEvent {
 	if h.client == nil {
 		events := make(chan *ChatEvent, 1)
 		events <- &ChatEvent{Error: NewSDKError(ErrCodeClientCreate, "客户端未初始化")}
@@ -241,32 +265,22 @@ func (h *InteractiveHandler) ResumeChat(ctx context.Context, threadID string, re
 		return events
 	}
 
-	// 构建恢复消息
-	// 将交互响应序列化为 JSON 作为消息内容
-	responseJSON, err := json.Marshal(response)
+	// 构建 userInteractive JSON
+	userInteractive := map[string]any{
+		"callId":       response.InteractionID,
+		"source":       response.Source,
+		"decision":     response.Decision,
+		"modifiedData": response.ModifiedData,
+	}
+	uiJSON, err := json.Marshal(userInteractive)
 	if err != nil {
 		events := make(chan *ChatEvent, 1)
-		events <- &ChatEvent{Error: NewSDKErrorWithCause(ErrCodeParseError, "序列化交互响应失败", err)}
+		events <- &ChatEvent{Error: NewSDKErrorWithCause(ErrCodeParseError, "序列化 userInteractive 失败", err)}
 		close(events)
 		return events
 	}
 
-	// 构建包含交互响应的变量
-	variables := map[string]any{
-		"workspace":         h.client.config.Workspace,
-		"region":            h.client.config.Region,
-		"language":          "zh",
-		"timeZone":          "Asia/Shanghai",
-		"timeStamp":         fmt.Sprintf("%d", time.Now().Unix()),
-		"interactionId":     response.InteractionID,
-		"interactionType":   string(response.Type),
-		"interactionResult": response.Response,
-	}
-
-	// 使用交互响应作为消息恢复对话
-	message := fmt.Sprintf("[交互响应] %s", string(responseJSON))
-
-	return h.client.ChatWithVariables(ctx, threadID, message, variables)
+	return h.client.Interact(ctx, threadID, string(uiJSON), baseVariables)
 }
 
 // =================================================================================
@@ -441,6 +455,48 @@ func (h *InteractiveHandler) getOptionLabel(option map[string]any, index int) st
 	}
 	// 默认显示选项编号
 	return fmt.Sprintf("选项 %d", index+1)
+}
+
+// getOptionValue 获取选项的 value 字段（用于 decision）
+func (h *InteractiveHandler) getOptionValue(option map[string]any) string {
+	if value, ok := option["value"].(string); ok {
+		return value
+	}
+	return ""
+}
+
+// extractSource 从交互负载中提取 source 信息
+// 优先从 userAck.source 提取，fallback 到 meta.source
+func (h *InteractiveHandler) extractSource(payload *types.ItemInteractivePayload) map[string]any {
+	if payload.UserAck != nil {
+		src := *payload.UserAck
+		if source, ok := src["source"].(map[string]any); ok {
+			return source
+		}
+	}
+	if payload.Meta != nil {
+		if source, ok := payload.Meta["source"].(map[string]any); ok {
+			return source
+		}
+	}
+	return nil
+}
+
+// extractData 从交互负载中提取 data 信息（用于 modifiedData）
+// 优先从 userAck.data 提取，fallback 到 meta.data
+func (h *InteractiveHandler) extractData(payload *types.ItemInteractivePayload) map[string]any {
+	if payload.UserAck != nil {
+		src := *payload.UserAck
+		if data, ok := src["data"].(map[string]any); ok {
+			return data
+		}
+	}
+	if payload.Meta != nil {
+		if data, ok := payload.Meta["data"].(map[string]any); ok {
+			return data
+		}
+	}
+	return nil
 }
 
 // =================================================================================

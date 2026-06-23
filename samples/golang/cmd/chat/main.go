@@ -7,12 +7,14 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
 	"github.com/vibeops/samples/golang/internal/client"
+	"github.com/vibeops/samples/golang/types"
 )
 
 func main() {
@@ -51,6 +53,7 @@ func main() {
 
 	// 创建打印器
 	printer := client.NewSimplePrinter()
+	interactiveHandler := client.NewInteractiveHandler(agentClient, 0)
 
 	// 交互循环
 	reader := bufio.NewReader(os.Stdin)
@@ -59,7 +62,7 @@ func main() {
 		input, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
-				fmt.Println("\n� 再见!")
+				fmt.Println("\n 再见!")
 				break
 			}
 			continue
@@ -80,19 +83,79 @@ func main() {
 		printer.Reset()
 		events := agentClient.Chat(ctx, threadID, input)
 
-		for event := range events {
-			if event.Error != nil {
-				fmt.Printf("❌ 错误: %v\n", event.Error)
-				continue
-			}
-			text := printer.ProcessEvent(event)
-			if text != "" {
-				fmt.Print(text)
-			}
-		}
+		processChatEvents(events, printer, interactiveHandler, ctx, threadID)
 
 		fmt.Println()
 		fmt.Println(strings.Repeat("=", 60))
 		fmt.Println()
 	}
+}
+
+// processChatEvents 处理 SSE 事件流，支持交互事件检测和流恢复
+func processChatEvents(
+	events <-chan *client.ChatEvent,
+	printer *client.SimplePrinter,
+	handler *client.InteractiveHandler,
+	ctx context.Context,
+	threadID string,
+) {
+	for events != nil {
+		event, ok := <-events
+		if !ok {
+			break
+		}
+
+		if event.Error != nil {
+			fmt.Printf("❌ 错误: %v\n", event.Error)
+			continue
+		}
+
+		// 检测交互事件
+		interactiveResp := extractChatInteractiveEvent(event, handler)
+		if interactiveResp != nil {
+			variables := map[string]any{}
+			events = handler.ResumeChat(ctx, threadID, interactiveResp, variables)
+			continue
+		}
+
+		text := printer.ProcessEvent(event)
+		if text != "" {
+			fmt.Print(text)
+		}
+	}
+}
+
+// extractChatInteractiveEvent 从 ChatEvent 中检测交互事件并处理用户响应
+func extractChatInteractiveEvent(event *client.ChatEvent, handler *client.InteractiveHandler) *client.InteractiveResponse {
+	if event.Body == nil || event.Body.Messages == nil {
+		return nil
+	}
+
+	var body struct {
+		Messages []types.MessageItem `json:"messages"`
+	}
+	if err := json.Unmarshal([]byte(event.RawJSON), &body); err != nil {
+		return nil
+	}
+
+	for _, msg := range body.Messages {
+		for _, evt := range msg.Events {
+			if evt.Type != types.EventTypeInteractive {
+				continue
+			}
+
+			resp, err := handler.HandleEvent(context.Background(), evt)
+			if err != nil {
+				fmt.Printf("⚠️ 交互处理失败: %v\n", err)
+				return nil
+			}
+			if resp == nil {
+				return nil
+			}
+
+			resp.InteractionID = msg.CallID
+			return resp
+		}
+	}
+	return nil
 }

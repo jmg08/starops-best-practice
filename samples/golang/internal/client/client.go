@@ -151,6 +151,86 @@ func (c *AgentClient) Chat(ctx context.Context, threadID, message string) <-chan
 	return c.ChatWithVariables(ctx, threadID, message, variables)
 }
 
+// ensureDefaultVariables 确保变量中包含必要字段的默认值
+func (c *AgentClient) ensureDefaultVariables(variables map[string]any) {
+	if variables == nil {
+		return
+	}
+	if _, ok := variables["workspace"]; !ok {
+		variables["workspace"] = c.config.Workspace
+	}
+	if _, ok := variables["region"]; !ok {
+		variables["region"] = c.config.Region
+	}
+	if _, ok := variables["language"]; !ok {
+		variables["language"] = "zh"
+	}
+	if _, ok := variables["timeZone"]; !ok {
+		variables["timeZone"] = "Asia/Shanghai"
+	}
+	if _, ok := variables["timeStamp"]; !ok {
+		variables["timeStamp"] = fmt.Sprintf("%d", time.Now().Unix())
+	}
+}
+
+// streamSSE 启动 SSE 流并将响应写入事件通道
+// ponytail: 提取公共 SSE 循环，ChatWithVariables 和 Interact 共用
+func (c *AgentClient) streamSSE(ctx context.Context, req *cms.CreateChatRequest, events chan *ChatEvent) {
+	yield := make(chan *cms.CreateChatResponse, 10)
+	yieldErr := make(chan error, 1)
+	runtime := &dara.RuntimeOptions{}
+	runtime.SetConnectTimeout(30000)
+	runtime.SetReadTimeout(300000)
+
+	go c.client.CreateChatWithSSECtx(ctx, req, nil, runtime, yield, yieldErr)
+
+	for {
+		select {
+		case resp, ok := <-yield:
+			if !ok {
+				events <- &ChatEvent{IsDone: true}
+				return
+			}
+
+			rawJSON := ""
+			if resp.Body != nil {
+				jsonBytes, err := json.Marshal(resp.Body)
+				if err == nil {
+					rawJSON = string(jsonBytes)
+				}
+			}
+
+			event := &ChatEvent{
+				Body:       resp.Body,
+				RawJSON:    rawJSON,
+				StatusCode: dara.Int32Value(resp.StatusCode),
+				Id:         dara.StringValue(resp.Id),
+				Event:      dara.StringValue(resp.Event),
+			}
+
+			if isDoneMessage(resp) {
+				event.IsDone = true
+			}
+
+			events <- event
+
+			if event.IsDone {
+				return
+			}
+
+		case err := <-yieldErr:
+			if err != nil {
+				events <- &ChatEvent{Error: err}
+			}
+			return
+
+		case <-ctx.Done():
+			events <- &ChatEvent{Error: ctx.Err()}
+			return
+		}
+	}
+}
+
 // ChatWithVariables 开始SSE对话（支持自定义 variables）
 func (c *AgentClient) ChatWithVariables(ctx context.Context, threadID, message string, variables map[string]any) <-chan *ChatEvent {
 	events := make(chan *ChatEvent, 10)
@@ -166,25 +246,10 @@ func (c *AgentClient) ChatWithVariables(ctx context.Context, threadID, message s
 		msg.SetRole("user")
 		msg.SetContents([]*cms.CreateChatRequestMessagesContents{content})
 
-		// 确保包含必要字段
 		if variables == nil {
 			variables = make(map[string]any)
 		}
-		if _, ok := variables["workspace"]; !ok {
-			variables["workspace"] = c.config.Workspace
-		}
-		if _, ok := variables["region"]; !ok {
-			variables["region"] = c.config.Region
-		}
-		if _, ok := variables["language"]; !ok {
-			variables["language"] = "zh"
-		}
-		if _, ok := variables["timeZone"]; !ok {
-			variables["timeZone"] = "Asia/Shanghai"
-		}
-		if _, ok := variables["timeStamp"]; !ok {
-			variables["timeStamp"] = fmt.Sprintf("%d", time.Now().Unix())
-		}
+		c.ensureDefaultVariables(variables)
 
 		req := &cms.CreateChatRequest{}
 		req.SetAction("create")
@@ -193,59 +258,35 @@ func (c *AgentClient) ChatWithVariables(ctx context.Context, threadID, message s
 		req.SetMessages([]*cms.CreateChatRequestMessages{msg})
 		req.SetVariables(variables)
 
-		yield := make(chan *cms.CreateChatResponse, 10)
-		yieldErr := make(chan error, 1)
-		runtime := &dara.RuntimeOptions{}
-		runtime.SetConnectTimeout(30000)
-		runtime.SetReadTimeout(300000)
+		c.streamSSE(ctx, req, events)
+	}()
 
-		go c.client.CreateChatWithSSECtx(ctx, req, nil, runtime, yield, yieldErr)
+	return events
+}
 
-		for {
-			select {
-			case resp, ok := <-yield:
-				if !ok {
-					events <- &ChatEvent{IsDone: true}
-					return
-				}
+// Interact 发送交互响应并恢复 SSE 对话
+// 使用 action="interact"，无 messages 字段，交互数据通过 variables.userInteractive 传递
+func (c *AgentClient) Interact(ctx context.Context, threadID string, userInteractive string, baseVariables map[string]any) <-chan *ChatEvent {
+	events := make(chan *ChatEvent, 10)
 
-				rawJSON := ""
-				if resp.Body != nil {
-					jsonBytes, err := json.Marshal(resp.Body)
-					if err == nil {
-						rawJSON = string(jsonBytes)
-					}
-				}
+	go func() {
+		defer close(events)
 
-				event := &ChatEvent{
-					Body:       resp.Body,
-					RawJSON:    rawJSON,
-					StatusCode: dara.Int32Value(resp.StatusCode),
-					Id:         dara.StringValue(resp.Id),
-					Event:      dara.StringValue(resp.Event),
-				}
-
-				if isDoneMessage(resp) {
-					event.IsDone = true
-				}
-
-				events <- event
-
-				if event.IsDone {
-					return
-				}
-
-			case err := <-yieldErr:
-				if err != nil {
-					events <- &ChatEvent{Error: err}
-				}
-				return
-
-			case <-ctx.Done():
-				events <- &ChatEvent{Error: ctx.Err()}
-				return
-			}
+		variables := make(map[string]any)
+		for k, v := range baseVariables {
+			variables[k] = v
 		}
+		variables["userInteractive"] = userInteractive
+		c.ensureDefaultVariables(variables)
+
+		req := &cms.CreateChatRequest{}
+		req.SetAction("interact")
+		req.SetThreadId(threadID)
+		req.SetDigitalEmployeeName(c.config.EmployeeName)
+		// ponytail: Interact 不设置 Messages，与 create 行为不同
+		req.SetVariables(variables)
+
+		c.streamSSE(ctx, req, events)
 	}()
 
 	return events
