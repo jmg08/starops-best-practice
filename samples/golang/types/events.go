@@ -231,12 +231,14 @@ type ItemThinkingPayload struct {
 }
 
 type ItemInteractiveUserAckPayload map[string]any
+type ItemInteractiveUserInputPayload map[string]any
 type ItemInteractivePayload struct {
-	InteractiveType InteractionType                `json:"type"`
-	Meta            map[string]any         `json:"meta,omitempty"`
-	Data            []map[string]any       `json:"data,omitempty"`
-	Queries         []map[string]any       `json:"queries,omitempty"`
-	UserAck         *ItemInteractiveUserAckPayload `json:"userAck,omitempty"`
+	InteractiveType InteractionType                  `json:"type"`
+	Meta            map[string]any           `json:"meta,omitempty"`
+	Data            []map[string]any         `json:"data,omitempty"`
+	Queries         []map[string]any         `json:"queries,omitempty"`
+	UserAck         *ItemInteractiveUserAckPayload   `json:"userAck,omitempty"`
+	UserInput       *ItemInteractiveUserInputPayload `json:"userInput,omitempty"`
 }
 
 type TaskStatistics struct {

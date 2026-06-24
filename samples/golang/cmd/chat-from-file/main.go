@@ -220,16 +220,7 @@ func processEvents(
 			writeOutput(outputFile, fmt.Sprintf("[EVENT %d]\n%s\n\n", eventIndex, event.RawJSON))
 		}
 
-		// 检测交互事件
-		interactiveResp := extractInteractiveEvent(event, handler)
-		if interactiveResp != nil {
-			fmt.Printf("\n🔄 检测到交互事件，等待用户响应...\n")
-			events = handler.ResumeChat(ctx, threadID, interactiveResp, variables)
-			eventIndex = 0
-			continue
-		}
-
-		// 正常输出
+		// 正常输出（先输出，确保交互事件内容可见）
 		if simplePrinter != nil {
 			text := simplePrinter.ProcessEvent(event)
 			if text != "" {
@@ -237,6 +228,15 @@ func processEvents(
 			}
 		} else {
 			eventPrinter.PrintEvent(event, eventIndex)
+		}
+
+		// 检测交互事件（在输出之后，确保用户看到交互内容）
+		interactiveResp := extractInteractiveEvent(event, handler)
+		if interactiveResp != nil {
+			fmt.Printf("\n🔄 检测到交互事件，用户已响应...\n")
+			events = handler.ResumeChat(ctx, threadID, interactiveResp, variables)
+			eventIndex = 0
+			continue
 		}
 
 		if event.IsDone {
@@ -267,7 +267,7 @@ func extractInteractiveEvent(event *client.ChatEvent, handler *client.Interactiv
 			}
 
 			// 处理交互事件
-			resp, err := handler.HandleEvent(context.Background(), evt)
+			resp, err := handler.HandleEvent(context.Background(), evt, msg.CallID)
 			if err != nil {
 				fmt.Printf("⚠️ 交互处理失败: %v\n", err)
 				return nil
@@ -276,8 +276,6 @@ func extractInteractiveEvent(event *client.ChatEvent, handler *client.Interactiv
 				return nil
 			}
 
-			// 填充 callId（从 MessageItem 获取）
-			resp.InteractionID = msg.CallID
 			return resp
 		}
 	}

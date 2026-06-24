@@ -3,6 +3,7 @@ Interactive handler for CMS SDK
 CMS SDK 交互处理器
 """
 
+import json
 import sys
 import time
 from dataclasses import dataclass
@@ -16,9 +17,13 @@ from .errors import SDKException, ErrorCode
 @dataclass
 class InteractiveResponse:
     """交互响应 / Interactive response"""
-    interaction_id: str
+    call_id: str
     type: InteractionType
     response: Dict[str, Any]
+    source: Optional[Dict[str, Any]] = None
+    modified_data: Optional[Dict[str, Any]] = None
+    form_data: Optional[Dict[str, Any]] = None
+    decision: str = ""
 
 
 class InteractiveHandler:
@@ -36,7 +41,7 @@ class InteractiveHandler:
         self.reader = reader or sys.stdin
         self.writer = writer or sys.stdout
 
-    def handle_event(self, event: Dict[str, Any]) -> InteractiveResponse:
+    def handle_event(self, event: Dict[str, Any], call_id: str) -> InteractiveResponse:
         """处理交互事件 / Handle interactive event"""
         if not event:
             raise SDKException(ErrorCode.PARSE_ERROR, "事件为空")
@@ -50,42 +55,68 @@ class InteractiveHandler:
             raise SDKException(ErrorCode.PARSE_ERROR, "交互负载为空")
 
         interactive_type = payload.get("type")
-        
+
         if interactive_type == InteractionType.USER_ACK.value:
-            return self.handle_user_ack(payload)
+            return self.handle_user_ack(payload, call_id)
         elif interactive_type == InteractionType.USER_SELECT.value:
-            return self.handle_user_select(payload)
+            return self.handle_user_select(payload, call_id)
         elif interactive_type == InteractionType.USER_INPUT.value:
-            return self.handle_user_input(payload)
+            return self.handle_user_input(payload, call_id)
         else:
             raise SDKException(ErrorCode.PARSE_ERROR, f"不支持的交互类型: {interactive_type}")
 
-    def handle_user_ack(self, payload: Dict[str, Any]) -> InteractiveResponse:
+    def handle_user_ack(self, payload: Dict[str, Any], call_id: str) -> InteractiveResponse:
         """处理用户确认 / Handle user acknowledgment"""
-        interaction_id = self._get_interaction_id(payload)
-        title = self._get_meta_field(payload, "title")
-        description = self._get_meta_field(payload, "description")
+        title = self._get_title(payload)
+        message = self._get_description(payload)
+        options = self._get_options(payload)
+        modified_data = self._extract_data(payload)
 
         self._print("\n🔔 确认请求")
+        self._print("--------------")
         if title:
-            self._print(f"   标题: {title}")
-        if description:
-            self._print(f"   描述: {description}")
-        self._print("   请输入 [y/yes] 确认，[n/no] 取消: ", end="")
+            self._print(title)
+        if message:
+            self._print(f"\n{message}")
+
+        if modified_data:
+            self._print()
+            for key, value in modified_data.items():
+                if key in ("title", "message"):
+                    continue
+                self._print(f"{key}: {value}")
+        self._print("--------------")
+
+        if options:
+            parts = []
+            for i, opt in enumerate(options):
+                parts.append(f"[{self._get_option_value(opt)}] {self._get_option_label(opt, i)}")
+            self._print(f"请输入 {', '.join(parts)}: ", end="")
+        else:
+            self._print("请输入 [y/yes] 确认，[n/no] 取消: ", end="")
 
         user_input = self._read_input().strip().lower()
         confirmed = user_input in ("", "y", "yes", "是")
+        decision = "yes" if confirmed else "no"
+
+        for opt in options:
+            if user_input == self._get_option_value(opt).lower():
+                decision = self._get_option_value(opt)
+                confirmed = True
+                break
 
         return InteractiveResponse(
-            interaction_id=interaction_id,
+            call_id=call_id,
             type=InteractionType.USER_ACK,
             response={"confirmed": confirmed},
+            source=self._extract_source(payload),
+            modified_data=modified_data,
+            decision=decision,
         )
 
-    def handle_user_select(self, payload: Dict[str, Any]) -> InteractiveResponse:
+    def handle_user_select(self, payload: Dict[str, Any], call_id: str) -> InteractiveResponse:
         """处理用户选择 / Handle user selection"""
-        interaction_id = self._get_interaction_id(payload)
-        title = self._get_meta_field(payload, "title")
+        title = self._get_title(payload)
 
         self._print("\n📋 请选择")
         if title:
@@ -116,41 +147,94 @@ class InteractiveHandler:
                 f"无效的选择: {user_input}，请输入 1-{len(options)} 之间的数字"
             )
 
+        selected_option = options[selected_index - 1]
+        decision = self._get_option_value(selected_option)
+
         return InteractiveResponse(
-            interaction_id=interaction_id,
+            call_id=call_id,
             type=InteractionType.USER_SELECT,
             response={
                 "selectedIndex": selected_index - 1,
-                "selectedValue": options[selected_index - 1],
+                "selectedValue": selected_option,
             },
+            source=self._extract_source(payload),
+            modified_data=self._extract_data(payload),
+            decision=decision,
         )
 
-    def handle_user_input(self, payload: Dict[str, Any]) -> InteractiveResponse:
-        """处理用户输入 / Handle user input"""
-        interaction_id = self._get_interaction_id(payload)
-        title = self._get_meta_field(payload, "title")
-        description = self._get_meta_field(payload, "description")
-        placeholder = self._get_meta_field(payload, "placeholder")
+    def handle_user_input(self, payload: Dict[str, Any], call_id: str) -> InteractiveResponse:
+        """处理用户输入（表单模式）/ Handle user input (form mode)"""
+        title = self._get_title(payload)
+        description = self._get_description(payload)
+        source = self._extract_source(payload)
 
-        self._print("\n✏️  请输入")
-        if title:
-            self._print(f"   标题: {title}")
+        form_spec = self._extract_form_spec(payload)
+        elements = self._get_form_elements(form_spec)
+        initial_values = self._get_form_initial_values(form_spec)
+
+        self._print(f"\n✏️  {title}")
         if description:
-            self._print(f"   描述: {description}")
-        if placeholder:
-            self._print(f"   提示: {placeholder}")
-        self._print("   请输入内容: ", end="")
+            self._print(f"    {description}")
+        self._print(f"    {'-' * 40}")
 
-        user_input = self._read_input().strip()
+        form_data = {}
+        for elem in elements:
+            field = self._get_field_key(elem)
+            label = self._get_field_label(elem, field)
+            widget = self._get_field_widget(elem)
+            placeholder = self._get_field_placeholder(elem)
+            default_value = self._get_initial_value(initial_values, field)
+
+            if widget in ("radio", "segmented"):
+                enum_opts = self._get_field_enum(form_spec, field)
+                if enum_opts:
+                    self._print(f"    {label}:")
+                    for i, opt in enumerate(enum_opts):
+                        marker = "*" if default_value == opt else " "
+                        self._print(f"      [{i + 1}]{marker} {opt}")
+                    prompt = f"    请选择 (1-{len(enum_opts)})"
+                    if default_value:
+                        prompt += f" [默认: {default_value}]"
+                    prompt += ": "
+                    user_input = self._do_prompt(prompt).strip()
+                    if not user_input and default_value:
+                        form_data[field] = default_value
+                    else:
+                        try:
+                            idx = int(user_input)
+                            if 1 <= idx <= len(enum_opts):
+                                form_data[field] = enum_opts[idx - 1]
+                            else:
+                                form_data[field] = default_value
+                        except ValueError:
+                            form_data[field] = default_value
+            else:
+                prompt = f"    {label}"
+                if placeholder:
+                    prompt += f" ({placeholder})"
+                if default_value:
+                    prompt += f" [默认: {default_value}]"
+                prompt += ": "
+                user_input = self._do_prompt(prompt).strip()
+                if not user_input and default_value:
+                    form_data[field] = default_value
+                else:
+                    form_data[field] = user_input
+
+        self._print(f"    {'-' * 40}")
 
         return InteractiveResponse(
-            interaction_id=interaction_id,
+            call_id=call_id,
             type=InteractionType.USER_INPUT,
-            response={"value": user_input},
+            response={"value": form_data},
+            source=source,
+            form_data=form_data,
+            decision="submit",
         )
 
     async def resume_chat(
-        self, thread_id: str, response: InteractiveResponse
+        self, thread_id: str, response: InteractiveResponse,
+        base_variables: Dict[str, Any] = None
     ) -> AsyncIterator[ChatEvent]:
         """使用交互响应恢复对话 / Resume chat with interactive response"""
         if not self.client:
@@ -165,53 +249,68 @@ class InteractiveHandler:
             )
             return
 
-        variables = {
-            "workspace": self.client.config.workspace,
-            "region": self.client.config.region,
-            "language": "zh",
-            "timeZone": "Asia/Shanghai",
-            "timeStamp": str(int(time.time())),
-            "interactionId": response.interaction_id,
-            "interactionType": response.type.value,
-            "interactionResult": response.response,
+        user_interactive = {
+            "callId": response.call_id,
+            "source": response.source,
+            "decision": response.decision,
         }
+        if response.type == InteractionType.USER_INPUT:
+            user_interactive["formData"] = response.form_data
+        else:
+            user_interactive["modifiedData"] = response.modified_data
 
-        import json
-        message = f"[交互响应] {json.dumps(response.__dict__, default=str)}"
-
-        async for event in self.client.chat_with_variables(thread_id, message, variables):
+        ui_json = json.dumps(user_interactive)
+        async for event in self.client.interact(thread_id, ui_json, base_variables):
             yield event
+
+    # =================================================================================
+    # 辅助方法
+    # =================================================================================
 
     def _print(self, text: str, end: str = "\n") -> None:
         self.writer.write(text + end)
         self.writer.flush()
 
-    def _read_input(self) -> str:
-        # Note: timeout handling would require threading in sync context
+    def _do_prompt(self, prompt: str) -> str:
+        self.writer.write(prompt)
+        self.writer.flush()
         return self.reader.readline()
 
-    def _get_interaction_id(self, payload: Dict[str, Any]) -> str:
-        meta = payload.get("meta", {})
-        if meta.get("id"):
-            return meta["id"]
-        if meta.get("interactionId"):
-            return meta["interactionId"]
-        return f"interaction_{int(time.time() * 1000000)}"
+    def _read_input(self) -> str:
+        return self.reader.readline()
 
-    def _get_meta_field(self, payload: Dict[str, Any], field: str) -> Optional[str]:
+    def _get_title(self, payload: Dict[str, Any]) -> Optional[str]:
+        user_ack = payload.get("userAck", {})
+        if user_ack:
+            data = user_ack.get("data", {})
+            if data.get("title"):
+                return data["title"]
+        user_input = payload.get("userInput", {})
+        if user_input.get("title"):
+            return user_input["title"]
         meta = payload.get("meta", {})
-        return meta.get(field)
+        return meta.get("title")
+
+    def _get_description(self, payload: Dict[str, Any]) -> Optional[str]:
+        user_ack = payload.get("userAck", {})
+        if user_ack.get("message"):
+            return user_ack["message"]
+        user_input = payload.get("userInput", {})
+        if user_input.get("description"):
+            return user_input["description"]
+        meta = payload.get("meta", {})
+        return meta.get("description") or meta.get("desc")
 
     def _get_options(self, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
-        # Try data field first
+        user_ack = payload.get("userAck", {})
+        options = user_ack.get("options")
+        if options:
+            return options
         data = payload.get("data", [])
         if data:
             return data
-
-        # Try meta.options
         meta = payload.get("meta", {})
-        options = meta.get("options", [])
-        return options
+        return meta.get("options", [])
 
     def _get_option_label(self, option: Dict[str, Any], index: int) -> str:
         for field in ["label", "name", "title", "value"]:
@@ -219,6 +318,73 @@ class InteractiveHandler:
             if isinstance(value, str) and value:
                 return value
         return f"选项 {index + 1}"
+
+    def _get_option_value(self, option: Dict[str, Any]) -> str:
+        value = option.get("value")
+        return str(value) if value is not None else ""
+
+    def _extract_source(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        user_ack = payload.get("userAck", {})
+        if user_ack.get("source"):
+            return user_ack["source"]
+        user_input = payload.get("userInput", {})
+        if user_input.get("source"):
+            return user_input["source"]
+        meta = payload.get("meta", {})
+        return meta.get("source")
+
+    def _extract_data(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        user_ack = payload.get("userAck", {})
+        if user_ack.get("data"):
+            return user_ack["data"]
+        meta = payload.get("meta", {})
+        return meta.get("data")
+
+    # =================================================================================
+    # formSpec 辅助方法 (user_input 表单模式)
+    # =================================================================================
+
+    def _extract_form_spec(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        user_input = payload.get("userInput", {})
+        return user_input.get("formSpec")
+
+    def _get_form_elements(self, form_spec: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if not form_spec:
+            return []
+        ui_schema = form_spec.get("ui_schema", {})
+        return ui_schema.get("elements", [])
+
+    def _get_form_initial_values(self, form_spec: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if not form_spec:
+            return None
+        return form_spec.get("initialValues")
+
+    def _get_field_key(self, elem: Dict[str, Any]) -> str:
+        return elem.get("field", "")
+
+    def _get_field_label(self, elem: Dict[str, Any], field: str) -> str:
+        return elem.get("label", field)
+
+    def _get_field_widget(self, elem: Dict[str, Any]) -> str:
+        return elem.get("widget", "input")
+
+    def _get_field_placeholder(self, elem: Dict[str, Any]) -> str:
+        return elem.get("placeholder", "")
+
+    def _get_initial_value(self, initial_values: Optional[Dict[str, Any]], field: str) -> str:
+        if not initial_values:
+            return ""
+        val = initial_values.get(field)
+        return str(val) if val is not None else ""
+
+    def _get_field_enum(self, form_spec: Optional[Dict[str, Any]], field: str) -> List[str]:
+        if not form_spec:
+            return []
+        schema = form_spec.get("schema", {})
+        properties = schema.get("properties", {})
+        prop = properties.get(field, {})
+        enum_vals = prop.get("enum", [])
+        return [str(v) for v in enum_vals]
 
     @staticmethod
     def is_interactive_event(event: Dict[str, Any]) -> bool:

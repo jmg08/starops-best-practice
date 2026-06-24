@@ -27,12 +27,13 @@ type InteractiveHandler struct {
 // InteractiveResponse 交互响应
 // 包含用户对交互事件的响应信息，以及构建 userInteractive API 请求所需的元数据
 type InteractiveResponse struct {
-	InteractionID string                 `json:"interactionId"`
-	Type          types.InteractionType  `json:"type"`
-	Response      map[string]any `json:"response"`       // 用户响应
-	Source        map[string]any `json:"source"`         // 交互事件来源（来自 payload）
-	ModifiedData  map[string]any `json:"modifiedData"`   // 交互数据（来自 payload data）
-	Decision      string         `json:"decision"`       // 用户决策: yes/no (user_ack), 选中值 (user_select), 输入文本 (user_input)
+	CallId       string                `json:"callId"`
+	Type         types.InteractionType `json:"type"`
+	Response     map[string]any        `json:"response"`     // 用户响应
+	Source       map[string]any        `json:"source"`       // 交互事件来源（来自 payload）
+	ModifiedData map[string]any        `json:"modifiedData"` // 交互数据: user_ack/user_select 使用
+	FormData     map[string]any        `json:"formData"`     // 表单数据: user_input 使用
+	Decision     string                `json:"decision"`     // 用户决策
 }
 
 // NewInteractiveHandler 创建交互处理器
@@ -56,7 +57,8 @@ func (h *InteractiveHandler) SetIO(reader io.Reader, writer io.Writer) {
 
 // HandleEvent 处理交互事件
 // 根据事件类型分发到对应的处理方法
-func (h *InteractiveHandler) HandleEvent(ctx context.Context, event *types.ItemEvent) (*InteractiveResponse, error) {
+// callId: 来自外层 MessageItem.CallID，非 payload 内部字段
+func (h *InteractiveHandler) HandleEvent(ctx context.Context, event *types.ItemEvent, callId string) (*InteractiveResponse, error) {
 	if event == nil {
 		return nil, NewSDKError(ErrCodeParseError, "事件为空")
 	}
@@ -74,11 +76,11 @@ func (h *InteractiveHandler) HandleEvent(ctx context.Context, event *types.ItemE
 	// 根据交互类型分发处理
 	switch payload.InteractiveType {
 	case types.InteractionTypeUserAck:
-		return h.HandleUserAck(ctx, payload)
+		return h.HandleUserAck(ctx, payload, callId)
 	case types.InteractionTypeUserSelect:
-		return h.HandleUserSelect(ctx, payload)
+		return h.HandleUserSelect(ctx, payload, callId)
 	case types.InteractionTypeUserInput:
-		return h.HandleUserInput(ctx, payload)
+		return h.HandleUserInput(ctx, payload, callId)
 	default:
 		return nil, NewSDKError(ErrCodeParseError, fmt.Sprintf("不支持的交互类型: %s", payload.InteractiveType))
 	}
@@ -86,26 +88,55 @@ func (h *InteractiveHandler) HandleEvent(ctx context.Context, event *types.ItemE
 
 // HandleUserAck 处理用户确认
 // 显示确认提示并等待用户响应
-func (h *InteractiveHandler) HandleUserAck(ctx context.Context, payload *types.ItemInteractivePayload) (*InteractiveResponse, error) {
+// callId: 来自外层 MessageItem.CallID
+// 字段映射: title ← userAck.data.title, message ← userAck.message
+func (h *InteractiveHandler) HandleUserAck(ctx context.Context, payload *types.ItemInteractivePayload, callId string) (*InteractiveResponse, error) {
 	if payload == nil {
 		return nil, NewSDKError(ErrCodeParseError, "交互负载为空")
 	}
 
-	// 获取交互 ID
-	interactionID := h.getInteractionID(payload)
-
-	// 显示确认提示
 	title := h.getTitle(payload)
-	description := h.getDescription(payload)
+	message := h.getDescription(payload)
+	options := h.getOptions(payload)
+	modifiedData := h.extractData(payload)
 
 	h.printf("\n🔔 确认请求\n")
+	h.printf("--------------\n")
 	if title != "" {
-		h.printf("   标题: %s\n", title)
+		h.printf("%s\n", title)
 	}
-	if description != "" {
-		h.printf("   描述: %s\n", description)
+	if message != "" {
+		h.printf("\n%s\n", message)
 	}
-	h.printf("   请输入 [y/yes] 确认，[n/no] 取消: ")
+
+	// 展示 data 详情字段
+	if modifiedData != nil {
+		h.printf("\n")
+		for key, value := range modifiedData {
+			// 跳过 title 和 message（已在上方展示）
+			if key == "title" || key == "message" {
+				continue
+			}
+			h.printf("%s: %v\n", key, value)
+		}
+	}
+	h.printf("--------------\n")
+
+	// 构建选项提示
+	if len(options) > 0 {
+		h.printf("请输入 ")
+		for i, opt := range options {
+			if i > 0 {
+				h.printf(", ")
+			}
+			value := h.getOptionValue(opt)
+			label := h.getOptionLabel(opt, i)
+			h.printf("[%s] %s", value, label)
+		}
+		h.printf(": ")
+	} else {
+		h.printf("请输入 [y/yes] 确认，[n/no] 取消: ")
+	}
 
 	// 读取用户输入
 	input, err := h.readInputWithTimeout(ctx)
@@ -122,13 +153,20 @@ func (h *InteractiveHandler) HandleUserAck(ctx context.Context, payload *types.I
 		decision = "yes"
 	}
 
-	// 从 payload 提取 source 和 data
+	// 如果用户输入匹配某个选项的 value，使用该 value 作为 decision
+	for _, opt := range options {
+		if input == strings.ToLower(h.getOptionValue(opt)) {
+			decision = h.getOptionValue(opt)
+			confirmed = true
+			break
+		}
+	}
+
 	source := h.extractSource(payload)
-	modifiedData := h.extractData(payload)
 
 	return &InteractiveResponse{
-		InteractionID: interactionID,
-		Type:          types.InteractionTypeUserAck,
+		CallId:       callId,
+		Type:         types.InteractionTypeUserAck,
 		Response: map[string]any{
 			"confirmed": confirmed,
 		},
@@ -140,13 +178,10 @@ func (h *InteractiveHandler) HandleUserAck(ctx context.Context, payload *types.I
 
 // HandleUserSelect 处理用户选择
 // 显示选项列表并捕获用户选择
-func (h *InteractiveHandler) HandleUserSelect(ctx context.Context, payload *types.ItemInteractivePayload) (*InteractiveResponse, error) {
+func (h *InteractiveHandler) HandleUserSelect(ctx context.Context, payload *types.ItemInteractivePayload, callId string) (*InteractiveResponse, error) {
 	if payload == nil {
 		return nil, NewSDKError(ErrCodeParseError, "交互负载为空")
 	}
-
-	// 获取交互 ID
-	interactionID := h.getInteractionID(payload)
 
 	// 显示选择提示
 	title := h.getTitle(payload)
@@ -189,8 +224,8 @@ func (h *InteractiveHandler) HandleUserSelect(ctx context.Context, payload *type
 	decision := h.getOptionValue(selectedOption)
 
 	return &InteractiveResponse{
-		InteractionID: interactionID,
-		Type:          types.InteractionTypeUserSelect,
+		CallId: callId,
+		Type:   types.InteractionTypeUserSelect,
 		Response: map[string]any{
 			"selectedIndex": selectedIndex - 1, // 0-based index
 			"selectedValue": selectedOption,
@@ -201,50 +236,112 @@ func (h *InteractiveHandler) HandleUserSelect(ctx context.Context, payload *type
 	}, nil
 }
 
-// HandleUserInput 处理用户输入
-// 提示用户输入并提交响应
-func (h *InteractiveHandler) HandleUserInput(ctx context.Context, payload *types.ItemInteractivePayload) (*InteractiveResponse, error) {
+// HandleUserInput 处理用户输入（表单模式）
+// 根据 formSpec 中的 ui_schema 逐字段提示用户输入
+// userInput 结构: {title, description, formSpec: {schema, ui_schema, initialValues}, source}
+func (h *InteractiveHandler) HandleUserInput(ctx context.Context, payload *types.ItemInteractivePayload, callId string) (*InteractiveResponse, error) {
 	if payload == nil {
 		return nil, NewSDKError(ErrCodeParseError, "交互负载为空")
 	}
 
-	// 获取交互 ID
-	interactionID := h.getInteractionID(payload)
-
-	// 显示输入提示
 	title := h.getTitle(payload)
 	description := h.getDescription(payload)
-	placeholder := h.getPlaceholder(payload)
+	source := h.extractSource(payload)
 
-	h.printf("\n✏️  请输入\n")
-	if title != "" {
-		h.printf("   标题: %s\n", title)
-	}
+	// 提取 formSpec
+	formSpec := h.extractFormSpec(payload)
+	elements := h.getFormElements(formSpec)
+	initialValues := h.getFormInitialValues(formSpec)
+
+	h.printf("\n✏️  %s\n", title)
 	if description != "" {
-		h.printf("   描述: %s\n", description)
+		h.printf("    %s\n", description)
 	}
-	if placeholder != "" {
-		h.printf("   提示: %s\n", placeholder)
-	}
-	h.printf("   请输入内容: ")
+	h.printf("    %s\n", strings.Repeat("-", 40))
 
-	// 读取用户输入
-	input, err := h.readInputWithTimeout(ctx)
-	if err != nil {
-		return nil, err
+	formData := make(map[string]any)
+
+	// 逐个字段收集输入
+	for _, elem := range elements {
+		field := h.getFieldKey(elem)
+		label := h.getFieldLabel(elem, field)
+		widget := h.getFieldWidget(elem)
+		placeholder := h.getFieldPlaceholder(elem)
+		defaultValue := h.getInitialValue(initialValues, field)
+
+		switch widget {
+		case "radio", "segmented":
+			// 枚举选择: 从 schema.properties[field].enum 获取选项
+			enumOpts := h.getFieldEnum(formSpec, field)
+			if len(enumOpts) > 0 {
+				h.printf("    %s:\n", label)
+				for i, opt := range enumOpts {
+					marker := " "
+					if defaultValue == opt {
+						marker = "*"
+					}
+					h.printf("      [%d]%s %s\n", i+1, marker, opt)
+				}
+				h.printf("    请选择 (1-%d)", len(enumOpts))
+				if defaultValue != "" {
+					h.printf(" [默认: %s]", defaultValue)
+				}
+				h.printf(": ")
+
+				input, err := h.readInputWithTimeout(ctx)
+				if err != nil {
+					return nil, err
+				}
+				input = strings.TrimSpace(input)
+				if input == "" && defaultValue != "" {
+					formData[field] = defaultValue
+				} else {
+					idx, err := strconv.Atoi(input)
+					if err != nil || idx < 1 || idx > len(enumOpts) {
+						formData[field] = defaultValue
+					} else {
+						formData[field] = enumOpts[idx-1]
+					}
+				}
+			}
+
+		case "textarea":
+			fallthrough
+		default:
+			// 文本输入
+			h.printf("    %s", label)
+			if placeholder != "" {
+				h.printf(" (%s)", placeholder)
+			}
+			if defaultValue != "" {
+				h.printf(" [默认: %s]", defaultValue)
+			}
+			h.printf(": ")
+
+			input, err := h.readInputWithTimeout(ctx)
+			if err != nil {
+				return nil, err
+			}
+			input = strings.TrimSpace(input)
+			if input == "" && defaultValue != "" {
+				formData[field] = defaultValue
+			} else {
+				formData[field] = input
+			}
+		}
 	}
 
-	input = strings.TrimSpace(input)
+	h.printf("    %s\n", strings.Repeat("-", 40))
 
 	return &InteractiveResponse{
-		InteractionID: interactionID,
-		Type:          types.InteractionTypeUserInput,
+		CallId:   callId,
+		Type:     types.InteractionTypeUserInput,
 		Response: map[string]any{
-			"value": input,
+			"value": formData,
 		},
-		Source:       h.extractSource(payload),
-		ModifiedData: h.extractData(payload),
-		Decision:     input,
+		Source:   source,
+		FormData: formData,
+		Decision: "submit",
 	}, nil
 }
 
@@ -267,10 +364,15 @@ func (h *InteractiveHandler) ResumeChat(ctx context.Context, threadID string, re
 
 	// 构建 userInteractive JSON
 	userInteractive := map[string]any{
-		"callId":       response.InteractionID,
-		"source":       response.Source,
-		"decision":     response.Decision,
-		"modifiedData": response.ModifiedData,
+		"callId":   response.CallId,
+		"source":   response.Source,
+		"decision": response.Decision,
+	}
+	// user_input 使用 formData，其他类型使用 modifiedData
+	if response.Type == types.InteractionTypeUserInput {
+		userInteractive["formData"] = response.FormData
+	} else {
+		userInteractive["modifiedData"] = response.ModifiedData
 	}
 	uiJSON, err := json.Marshal(userInteractive)
 	if err != nil {
@@ -365,22 +467,23 @@ func (h *InteractiveHandler) printf(format string, args ...any) {
 	fmt.Fprintf(h.writer, format, args...)
 }
 
-// getInteractionID 从负载中获取交互 ID
-func (h *InteractiveHandler) getInteractionID(payload *types.ItemInteractivePayload) string {
-	if payload.Meta != nil {
-		if id, ok := payload.Meta["id"].(string); ok {
-			return id
-		}
-		if id, ok := payload.Meta["interactionId"].(string); ok {
-			return id
+// getTitle 从负载中获取标题
+// 优先从 userAck.data.title / userInput.title 提取，fallback 到 meta.title
+func (h *InteractiveHandler) getTitle(payload *types.ItemInteractivePayload) string {
+	if payload.UserAck != nil {
+		src := *payload.UserAck
+		if data, ok := src["data"].(map[string]any); ok {
+			if title, ok := data["title"].(string); ok {
+				return title
+			}
 		}
 	}
-	// 生成默认 ID
-	return fmt.Sprintf("interaction_%d", time.Now().UnixNano())
-}
-
-// getTitle 从负载中获取标题
-func (h *InteractiveHandler) getTitle(payload *types.ItemInteractivePayload) string {
+	if payload.UserInput != nil {
+		src := *payload.UserInput
+		if title, ok := src["title"].(string); ok {
+			return title
+		}
+	}
 	if payload.Meta != nil {
 		if title, ok := payload.Meta["title"].(string); ok {
 			return title
@@ -390,7 +493,20 @@ func (h *InteractiveHandler) getTitle(payload *types.ItemInteractivePayload) str
 }
 
 // getDescription 从负载中获取描述
+// 优先从 userAck.message / userInput.description 提取，fallback 到 meta
 func (h *InteractiveHandler) getDescription(payload *types.ItemInteractivePayload) string {
+	if payload.UserAck != nil {
+		src := *payload.UserAck
+		if message, ok := src["message"].(string); ok {
+			return message
+		}
+	}
+	if payload.UserInput != nil {
+		src := *payload.UserInput
+		if desc, ok := src["description"].(string); ok {
+			return desc
+		}
+	}
 	if payload.Meta != nil {
 		if desc, ok := payload.Meta["description"].(string); ok {
 			return desc
@@ -413,13 +529,30 @@ func (h *InteractiveHandler) getPlaceholder(payload *types.ItemInteractivePayloa
 }
 
 // getOptions 从负载中获取选项列表
+// 优先从 userAck.options 提取，fallback 到 Data → Meta.options
 func (h *InteractiveHandler) getOptions(payload *types.ItemInteractivePayload) []map[string]any {
-	// 优先从 Data 字段获取
+	// 优先从 userAck.options 获取
+	if payload.UserAck != nil {
+		src := *payload.UserAck
+		if opts, ok := src["options"].([]any); ok {
+			result := make([]map[string]any, 0, len(opts))
+			for _, opt := range opts {
+				if optMap, ok := opt.(map[string]any); ok {
+					result = append(result, optMap)
+				}
+			}
+			if len(result) > 0 {
+				return result
+			}
+		}
+	}
+
+	// fallback: Data 字段
 	if len(payload.Data) > 0 {
 		return payload.Data
 	}
 
-	// 尝试从 Meta 中获取
+	// fallback: Meta.options
 	if payload.Meta != nil {
 		if options, ok := payload.Meta["options"].([]any); ok {
 			result := make([]map[string]any, 0, len(options))
@@ -466,10 +599,16 @@ func (h *InteractiveHandler) getOptionValue(option map[string]any) string {
 }
 
 // extractSource 从交互负载中提取 source 信息
-// 优先从 userAck.source 提取，fallback 到 meta.source
+// 优先从 userAck.source / userInput.source 提取，fallback 到 meta
 func (h *InteractiveHandler) extractSource(payload *types.ItemInteractivePayload) map[string]any {
 	if payload.UserAck != nil {
 		src := *payload.UserAck
+		if source, ok := src["source"].(map[string]any); ok {
+			return source
+		}
+	}
+	if payload.UserInput != nil {
+		src := *payload.UserInput
 		if source, ok := src["source"].(map[string]any); ok {
 			return source
 		}
@@ -483,7 +622,7 @@ func (h *InteractiveHandler) extractSource(payload *types.ItemInteractivePayload
 }
 
 // extractData 从交互负载中提取 data 信息（用于 modifiedData）
-// 优先从 userAck.data 提取，fallback 到 meta.data
+// userAck: userAck.data; userInput: 无(使用 formData 替代)
 func (h *InteractiveHandler) extractData(payload *types.ItemInteractivePayload) map[string]any {
 	if payload.UserAck != nil {
 		src := *payload.UserAck
@@ -497,6 +636,126 @@ func (h *InteractiveHandler) extractData(payload *types.ItemInteractivePayload) 
 		}
 	}
 	return nil
+}
+
+// =================================================================================
+// formSpec 辅助方法 (user_input 表单模式)
+// =================================================================================
+
+// extractFormSpec 从 userInput 负载中提取 formSpec
+func (h *InteractiveHandler) extractFormSpec(payload *types.ItemInteractivePayload) map[string]any {
+	if payload.UserInput != nil {
+		src := *payload.UserInput
+		if formSpec, ok := src["formSpec"].(map[string]any); ok {
+			return formSpec
+		}
+	}
+	return nil
+}
+
+// getFormElements 从 formSpec 中提取 ui_schema.elements
+func (h *InteractiveHandler) getFormElements(formSpec map[string]any) []map[string]any {
+	if formSpec == nil {
+		return nil
+	}
+	uiSchema, ok := formSpec["ui_schema"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	elements, ok := uiSchema["elements"].([]any)
+	if !ok {
+		return nil
+	}
+	result := make([]map[string]any, 0, len(elements))
+	for _, elem := range elements {
+		if m, ok := elem.(map[string]any); ok {
+			result = append(result, m)
+		}
+	}
+	return result
+}
+
+// getFormInitialValues 从 formSpec 中提取 initialValues
+func (h *InteractiveHandler) getFormInitialValues(formSpec map[string]any) map[string]any {
+	if formSpec == nil {
+		return nil
+	}
+	initialValues, ok := formSpec["initialValues"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	return initialValues
+}
+
+// getFieldKey 从元素中提取 field 键
+func (h *InteractiveHandler) getFieldKey(elem map[string]any) string {
+	if field, ok := elem["field"].(string); ok {
+		return field
+	}
+	return ""
+}
+
+// getFieldLabel 从元素中提取 label 作为显示名
+func (h *InteractiveHandler) getFieldLabel(elem map[string]any, field string) string {
+	if label, ok := elem["label"].(string); ok {
+		return label
+	}
+	return field
+}
+
+// getFieldWidget 从元素中提取 widget 类型
+func (h *InteractiveHandler) getFieldWidget(elem map[string]any) string {
+	if widget, ok := elem["widget"].(string); ok {
+		return widget
+	}
+	return "input"
+}
+
+// getFieldPlaceholder 从元素中提取 placeholder
+func (h *InteractiveHandler) getFieldPlaceholder(elem map[string]any) string {
+	if placeholder, ok := elem["placeholder"].(string); ok {
+		return placeholder
+	}
+	return ""
+}
+
+// getInitialValue 从 initialValues 中获取字段的默认值
+func (h *InteractiveHandler) getInitialValue(initialValues map[string]any, field string) string {
+	if initialValues == nil {
+		return ""
+	}
+	if val, ok := initialValues[field]; ok {
+		return fmt.Sprintf("%v", val)
+	}
+	return ""
+}
+
+// getFieldEnum 从 formSpec.schema.properties[field].enum 获取枚举选项
+func (h *InteractiveHandler) getFieldEnum(formSpec map[string]any, field string) []string {
+	if formSpec == nil {
+		return nil
+	}
+	schema, ok := formSpec["schema"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	properties, ok := schema["properties"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	prop, ok := properties[field].(map[string]any)
+	if !ok {
+		return nil
+	}
+	enumVals, ok := prop["enum"].([]any)
+	if !ok {
+		return nil
+	}
+	result := make([]string, 0, len(enumVals))
+	for _, v := range enumVals {
+		result = append(result, fmt.Sprintf("%v", v))
+	}
+	return result
 }
 
 // =================================================================================

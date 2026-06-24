@@ -110,17 +110,18 @@ func processChatEvents(
 			continue
 		}
 
-		// 检测交互事件
+		// 正常输出（先输出，确保交互事件内容可见）
+		text := printer.ProcessEvent(event)
+		if text != "" {
+			fmt.Print(text)
+		}
+
+		// 检测交互事件（在输出之后，确保用户看到交互内容）
 		interactiveResp := extractChatInteractiveEvent(event, handler)
 		if interactiveResp != nil {
 			variables := map[string]any{}
 			events = handler.ResumeChat(ctx, threadID, interactiveResp, variables)
 			continue
-		}
-
-		text := printer.ProcessEvent(event)
-		if text != "" {
-			fmt.Print(text)
 		}
 	}
 }
@@ -144,7 +145,7 @@ func extractChatInteractiveEvent(event *client.ChatEvent, handler *client.Intera
 				continue
 			}
 
-			resp, err := handler.HandleEvent(context.Background(), evt)
+			resp, err := handler.HandleEvent(context.Background(), evt, msg.CallID)
 			if err != nil {
 				fmt.Printf("⚠️ 交互处理失败: %v\n", err)
 				return nil
@@ -153,7 +154,6 @@ func extractChatInteractiveEvent(event *client.ChatEvent, handler *client.Intera
 				return nil
 			}
 
-			resp.InteractionID = msg.CallID
 			return resp
 		}
 	}

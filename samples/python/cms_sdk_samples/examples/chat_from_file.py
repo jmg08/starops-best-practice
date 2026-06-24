@@ -17,7 +17,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from ..client import AgentClient, Config, SDKException, SimplePrinter, EventPrinter
+from ..client import AgentClient, Config, SDKException, SimplePrinter, EventPrinter, InteractiveHandler, InteractiveResponse
 
 
 def parse_args():
@@ -66,9 +66,11 @@ async def process_file(client: AgentClient, file_path: str, output_dir: str, sim
         start_time = time.time()
         simple_printer = SimplePrinter() if simple_mode else None
         event_printer = None if simple_mode else EventPrinter(print_raw_body=False, print_parsed=True)
+        interactive_handler = InteractiveHandler(client)
         event_index = 0
 
-        async for event in client.chat_with_variables(thread_id, message, variables):
+        events = client.chat_with_variables(thread_id, message, variables)
+        async for event in events:
             event_index += 1
 
             if event.has_error():
@@ -80,13 +82,20 @@ async def process_file(client: AgentClient, file_path: str, output_dir: str, sim
             if event.raw_json:
                 write_output(output_file, f"[EVENT {event_index}]\n{event.raw_json}\n")
 
-            # Output
+            # 正常输出（先输出）
             if simple_mode:
                 text = simple_printer.process_event(event)
                 if text:
                     print(text, end="", flush=True)
             else:
                 event_printer.print_event(event, event_index)
+
+            # 检测交互事件（在输出之后）
+            interactive_resp = _extract_interactive_event(event, interactive_handler)
+            if interactive_resp:
+                print("\n🔄 检测到交互事件，用户已响应...")
+                events = interactive_handler.resume_chat(thread_id, interactive_resp, variables)
+                event_index = 0
 
         elapsed = time.time() - start_time
         print()
@@ -189,6 +198,22 @@ async def main_async():
     except Exception as e:
         print(f"❌ 错误: {e}")
         sys.exit(1)
+
+
+def _extract_interactive_event(event, handler: InteractiveHandler) -> Optional[InteractiveResponse]:
+    """从 ChatEvent 中检测交互事件并处理用户响应"""
+    if not event.raw_json:
+        return None
+    try:
+        body = json.loads(event.raw_json)
+        for msg in body.get("messages", []):
+            for evt in msg.get("events", []):
+                if InteractiveHandler.is_interactive_event(evt):
+                    call_id = msg.get("callId", "")
+                    return handler.handle_event(evt, call_id)
+    except Exception as e:
+        print(f"⚠️ 交互事件解析失败: {e}")
+    return None
 
 
 def main():

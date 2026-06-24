@@ -7,9 +7,11 @@ Usage: python -m cms_sdk_samples.examples.chat
 """
 
 import asyncio
+import json
 import sys
+from typing import Optional
 
-from ..client import AgentClient, Config, SDKException, SimplePrinter
+from ..client import AgentClient, Config, SDKException, SimplePrinter, InteractiveHandler, InteractiveResponse
 
 
 async def main_async():
@@ -31,6 +33,7 @@ async def main_async():
 
         # Create printer
         printer = SimplePrinter()
+        interactive_handler = InteractiveHandler(client)
 
         # Interactive loop
         while True:
@@ -51,14 +54,22 @@ async def main_async():
 
             # Send message
             printer.reset()
-            async for event in client.chat(thread_id, user_input):
+            events = client.chat(thread_id, user_input)
+            async for event in events:
                 if event.has_error():
                     print(f"❌ 错误: {event.error}")
                     continue
 
+                # 正常输出（先输出）
                 text = printer.process_event(event)
                 if text:
                     print(text, end="", flush=True)
+
+                # 检测交互事件（在输出之后）
+                interactive_resp = _extract_interactive_event(event, interactive_handler)
+                if interactive_resp:
+                    events = interactive_handler.resume_chat(thread_id, interactive_resp)
+                    continue
 
             print()
             print("=" * 60)
@@ -73,6 +84,22 @@ async def main_async():
     except Exception as e:
         print(f"❌ 错误: {e}")
         sys.exit(1)
+
+
+def _extract_interactive_event(event, handler: InteractiveHandler) -> Optional[InteractiveResponse]:
+    """从 ChatEvent 中检测交互事件并处理用户响应"""
+    if not event.raw_json:
+        return None
+    try:
+        body = json.loads(event.raw_json)
+        for msg in body.get("messages", []):
+            for evt in msg.get("events", []):
+                if InteractiveHandler.is_interactive_event(evt):
+                    call_id = msg.get("callId", "")
+                    return handler.handle_event(evt, call_id)
+    except Exception as e:
+        print(f"⚠️ 交互事件解析失败: {e}")
+    return None
 
 
 def main():

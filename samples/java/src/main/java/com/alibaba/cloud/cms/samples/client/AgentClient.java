@@ -206,6 +206,68 @@ public class AgentClient implements AutoCloseable {
     }
 
     /**
+     * 发送交互响应并恢复 SSE 对话
+     * Send interactive response and resume SSE chat
+     * 使用 action="interact"，无 messages 字段
+     */
+    public BlockingQueue<ChatEvent> interact(String threadId, String userInteractive,
+            Map<String, Object> baseVariables) {
+        BlockingQueue<ChatEvent> events = new LinkedBlockingQueue<>();
+
+        final Map<String, Object> variables = baseVariables != null
+                ? new HashMap<>(baseVariables) : new HashMap<>();
+        variables.put("userInteractive", userInteractive);
+        variables.putIfAbsent("workspace", config.getWorkspace());
+        variables.putIfAbsent("region", config.getRegion());
+        variables.putIfAbsent("language", "zh");
+        variables.putIfAbsent("timeZone", "Asia/Shanghai");
+        variables.putIfAbsent("timeStamp", String.valueOf(Instant.now().getEpochSecond()));
+
+        executor.submit(() -> {
+            try {
+                CreateChatRequest request = CreateChatRequest.builder()
+                        .regionId(config.getRegion())
+                        .action("interact")
+                        .threadId(threadId)
+                        .digitalEmployeeName(config.getEmployeeName())
+                        .variables(variables)
+                        .build();
+
+                ResponseIterable<CreateChatResponseBody> iterable =
+                        client.createChatWithResponseIterable(request);
+
+                Iterator<CreateChatResponseBody> iterator = iterable.iterator();
+                while (iterator.hasNext()) {
+                    CreateChatResponseBody body = iterator.next();
+                    if (body != null) {
+                        Map<String, Object> map = bodyToMap(body);
+                        String jsonStr = objectMapper.writeValueAsString(map);
+                        JsonNode jsonNode = objectMapper.readTree(jsonStr);
+                        ChatEvent event = ChatEvent.fromResponse(jsonNode, jsonStr, 200);
+                        events.put(event);
+                        if (event.isDone()) {
+                            return;
+                        }
+                    }
+                }
+
+                events.put(ChatEvent.done());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                try {
+                    events.put(ChatEvent.error(SDKException.cancelled()));
+                } catch (InterruptedException ignored) {}
+            } catch (Exception e) {
+                try {
+                    events.put(ChatEvent.error(SDKException.chatFailed(e)));
+                } catch (InterruptedException ignored) {}
+            }
+        });
+
+        return events;
+    }
+
+    /**
      * 将 CreateChatResponseBody 转为 Map
      * Convert CreateChatResponseBody to Map for JSON serialization
      */

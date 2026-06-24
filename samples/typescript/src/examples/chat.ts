@@ -7,7 +7,34 @@
  */
 
 import * as readline from 'readline';
-import { loadConfigFromEnv, AgentClient, SimplePrinter, SDKException } from '../client/index.js';
+import { loadConfigFromEnv, AgentClient, SimplePrinter, InteractiveHandler, InteractiveResponse, SDKException } from '../client/index.js';
+
+function prompt(rl: readline.Interface, question: string): Promise<string> {
+  return new Promise((resolve) => {
+    rl.question(question, resolve);
+  });
+}
+
+async function extractInteractiveEvent(
+  event: { rawJson?: string },
+  handler: InteractiveHandler
+): Promise<InteractiveResponse | null> {
+  if (!event.rawJson) return null;
+  try {
+    const body = JSON.parse(event.rawJson);
+    for (const msg of body.messages || []) {
+      for (const evt of msg.events || []) {
+        if (InteractiveHandler.isInteractiveEvent(evt)) {
+          const callId = msg.callId || '';
+          return await handler.handleEvent(evt, callId);
+        }
+      }
+    }
+  } catch (e) {
+    console.log(`⚠️ 交互事件解析失败: ${(e as Error).message}`);
+  }
+  return null;
+}
 
 async function main() {
   console.log('🚀 VibeOps Chat (TypeScript)');
@@ -28,6 +55,7 @@ async function main() {
 
     // Create printer
     const printer = new SimplePrinter();
+    const interactiveHandler = new InteractiveHandler(client);
 
     // Interactive loop
     const rl = readline.createInterface({
@@ -35,56 +63,46 @@ async function main() {
       output: process.stdout,
     });
 
-    const prompt = () => {
-      rl.question('👤 请输入 (quit 退出): ', async (input) => {
-        input = input.trim();
+    while (true) {
+      const input = (await prompt(rl, '👤 请输入 (quit 退出): ')).trim();
 
-        if (!input) {
-          prompt();
-          return;
-        }
+      if (!input) continue;
+      if (input === 'quit' || input === 'exit') {
+        console.log('👋 再见!');
+        break;
+      }
 
-        if (input === 'quit' || input === 'exit') {
-          console.log('👋 再见!');
-          rl.close();
-          return;
-        }
+      console.log('-'.repeat(60));
 
-        console.log('-'.repeat(60));
-
-        // Send message
-        printer.reset();
-        try {
-          for await (const event of client.chat(threadId, input)) {
-            if (event.error) {
-              console.log(`❌ 错误: ${event.error.message}`);
-              if (event.error.cause) {
-                console.log(`   原因: ${(event.error.cause as Error).message || event.error.cause}`);
-              }
-              continue;
-            }
-
-            const text = printer.processEvent(event);
-            if (text) {
-              process.stdout.write(text);
-            }
+      printer.reset();
+      try {
+        let events = client.chat(threadId, input);
+        for await (const event of events) {
+          if (event.error) {
+            console.log(`❌ 错误: ${event.error.message}`);
+            continue;
           }
-        } catch (chatError) {
-          console.log(`❌ 对话异常: ${(chatError as Error).message}`);
-          if ((chatError as Error).stack) {
-            console.log((chatError as Error).stack);
+
+          // 正常输出（先输出）
+          const text = printer.processEvent(event);
+          if (text) process.stdout.write(text);
+
+          // 检测交互事件（在输出之后）
+          const interactiveResp = await extractInteractiveEvent(event, interactiveHandler);
+          if (interactiveResp) {
+            events = interactiveHandler.resumeChat(threadId, interactiveResp);
           }
         }
+      } catch (chatError) {
+        console.log(`❌ 对话异常: ${(chatError as Error).message}`);
+      }
 
-        console.log();
-        console.log('='.repeat(60));
-        console.log();
+      console.log();
+      console.log('='.repeat(60));
+      console.log();
+    }
 
-        prompt();
-      });
-    };
-
-    prompt();
+    rl.close();
   } catch (e) {
     if (e instanceof SDKException) {
       console.log(`❌ 配置加载失败: ${e}`);

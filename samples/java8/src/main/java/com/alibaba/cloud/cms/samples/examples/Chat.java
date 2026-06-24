@@ -2,13 +2,19 @@ package com.alibaba.cloud.cms.samples.examples;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 
 import com.alibaba.cloud.cms.samples.client.AgentClient;
 import com.alibaba.cloud.cms.samples.client.ChatEvent;
 import com.alibaba.cloud.cms.samples.client.Config;
+import com.alibaba.cloud.cms.samples.client.InteractiveHandler;
+import com.alibaba.cloud.cms.samples.client.InteractiveResponse;
 import com.alibaba.cloud.cms.samples.client.SDKException;
 import com.alibaba.cloud.cms.samples.client.SimplePrinter;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * 交互式对话示例
@@ -22,17 +28,23 @@ public class Chat {
         System.out.println(repeatStr("=", 60));
 
         try {
+            // Load configuration
             Config cfg = Config.loadFromEnv();
             System.out.printf("📋 Employee: %s%n%n", cfg.getEmployeeName());
 
+            // Create client
             AgentClient client = new AgentClient(cfg);
 
+            // Create thread
             System.out.println("📝 创建会话...");
             String threadId = client.createThread();
             System.out.printf("✅ ThreadID: %s%n%n", threadId);
 
+            // Create printer
             SimplePrinter printer = new SimplePrinter();
+            InteractiveHandler interactiveHandler = new InteractiveHandler(client, null);
 
+            // Interactive loop
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
             while (true) {
                 System.out.print("👤 请输入 (quit 退出): ");
@@ -54,26 +66,11 @@ public class Chat {
 
                 System.out.println(repeatStr("-", 60));
 
+                // Send message
                 printer.reset();
                 BlockingQueue<ChatEvent> events = client.chat(threadId, input);
 
-                while (true) {
-                    ChatEvent event = events.take();
-
-                    if (event.hasError()) {
-                        System.out.printf("❌ 错误: %s%n", event.getError().getMessage());
-                        break;
-                    }
-
-                    String text = printer.processEvent(event);
-                    if (!text.isEmpty()) {
-                        System.out.print(text);
-                    }
-
-                    if (event.isDone()) {
-                        break;
-                    }
-                }
+                processChatEvents(events, printer, interactiveHandler, threadId);
 
                 System.out.println();
                 System.out.println(repeatStr("=", 60));
@@ -91,6 +88,66 @@ public class Chat {
             System.out.printf("❌ 错误: %s%n", e.getMessage());
             System.exit(1);
         }
+    }
+
+    private static void processChatEvents(
+            BlockingQueue<ChatEvent> events,
+            SimplePrinter printer,
+            InteractiveHandler handler,
+            String threadId) throws InterruptedException {
+        while (events != null) {
+            ChatEvent event = events.take();
+
+            if (event.hasError()) {
+                System.out.printf("❌ 错误: %s%n", event.getError().getMessage());
+                break;
+            }
+
+            // 正常输出（先输出）
+            String text = printer.processEvent(event);
+            if (!text.isEmpty()) {
+                System.out.print(text);
+            }
+
+            // 检测交互事件（在输出之后）
+            InteractiveResponse interactiveResp = extractChatInteractiveEvent(event, handler);
+            if (interactiveResp != null) {
+                Map<String, Object> variables = new HashMap<String, Object>();
+                events = handler.resumeChat(threadId, interactiveResp, variables);
+                continue;
+            }
+
+            if (event.isDone()) {
+                break;
+            }
+        }
+    }
+
+    private static InteractiveResponse extractChatInteractiveEvent(ChatEvent event, InteractiveHandler handler) {
+        if (event.getRawJson() == null || event.getRawJson().isEmpty()) {
+            return null;
+        }
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(event.getRawJson());
+            JsonNode messages = root.get("messages");
+            if (messages == null || !messages.isArray()) return null;
+
+            for (JsonNode msg : messages) {
+                JsonNode events = msg.get("events");
+                if (events == null || !events.isArray()) continue;
+
+                for (JsonNode evt : events) {
+                    if (InteractiveHandler.isInteractiveEvent(evt)) {
+                        String callId = msg.has("callId") ? msg.get("callId").asText() : "";
+                        return handler.handleEvent(evt, callId);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.printf("⚠️ 交互事件解析失败: %s%n", e.getMessage());
+        }
+        return null;
     }
 
     private static String repeatStr(String s, int count) {

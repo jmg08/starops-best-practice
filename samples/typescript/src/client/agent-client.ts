@@ -186,6 +186,57 @@ export class AgentClient {
     }
   }
 
+  /** 发送交互响应并恢复 SSE 对话 / Send interactive response and resume SSE chat */
+  async *interact(
+    threadId: string,
+    userInteractive: string,
+    baseVariables?: Record<string, unknown>
+  ): AsyncIterable<ChatEvent> {
+    try {
+      const vars: Record<string, unknown> = { ...baseVariables };
+      vars.userInteractive = userInteractive;
+      vars.workspace = vars.workspace || this.config.workspace;
+      vars.region = vars.region || this.config.region;
+      vars.language = vars.language || 'zh';
+      vars.timeZone = vars.timeZone || 'Asia/Shanghai';
+      vars.timeStamp = vars.timeStamp || String(Math.floor(Date.now() / 1000));
+
+      const request = new $Starops20260428.CreateChatRequest({
+        action: 'interact',
+        threadId,
+        digitalEmployeeName: this.config.employeeName,
+        variables: vars,
+      });
+
+      const runtime = new $dara.RuntimeOptions({
+        readTimeout: 120000,
+        connectTimeout: 30000,
+      });
+      const responseIterator = await this.client.createChatWithSSE(request, {}, runtime);
+
+      for await (const response of responseIterator) {
+        if (response.body) {
+          const bodyObj = response.body as unknown as Record<string, unknown>;
+          const rawJson = JSON.stringify(bodyObj);
+          const event: ChatEvent = {
+            id: bodyObj?.id as string | undefined,
+            event: bodyObj?.event as string | undefined,
+            body: bodyObj,
+            rawJson,
+            statusCode: 200,
+            isDone: isDoneMessage(bodyObj),
+          };
+          yield event;
+          if (event.isDone) return;
+        }
+      }
+      yield { rawJson: '', statusCode: 200, isDone: true };
+    } catch (e) {
+      yield { rawJson: '', statusCode: 0, isDone: false,
+        error: SDKException.chatFailed(e as Error) };
+    }
+  }
+
   /** 带超时的对话 / Chat with timeout */
   async *chatWithTimeout(
     threadId: string,

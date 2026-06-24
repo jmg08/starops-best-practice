@@ -187,6 +187,45 @@ class AgentClient:
         except Exception as e:
             yield ChatEvent.from_error(SDKException.chat_failed(e))
 
+    async def interact(
+        self, thread_id: str, user_interactive: str,
+        base_variables: Optional[Dict[str, Any]] = None
+    ) -> AsyncIterator[ChatEvent]:
+        """发送交互响应并恢复 SSE 对话 / Send interactive response and resume SSE chat"""
+        try:
+            variables = dict(base_variables) if base_variables else {}
+            variables["userInteractive"] = user_interactive
+            variables.setdefault("workspace", self.config.workspace)
+            variables.setdefault("region", self.config.region)
+            variables.setdefault("language", "zh")
+            variables.setdefault("timeZone", "Asia/Shanghai")
+            variables.setdefault("timeStamp", str(int(time.time())))
+
+            request = cms_models.CreateChatRequest(
+                action="interact",
+                thread_id=thread_id,
+                digital_employee_name=self.config.employee_name,
+                variables=variables,
+            )
+
+            runtime = util_models.RuntimeOptions()
+            runtime.connect_timeout = 30000
+            runtime.read_timeout = 300000
+            response_iterator = self._client.create_chat_with_sse(request, {}, runtime)
+
+            for response in response_iterator:
+                if response.body:
+                    body_dict = response.body.to_map()
+                    raw_json = json.dumps(body_dict, ensure_ascii=False)
+                    event = ChatEvent.from_response(body_dict, raw_json, 200)
+                    yield event
+                    if event.is_done:
+                        return
+
+            yield ChatEvent.done()
+        except Exception as e:
+            yield ChatEvent.from_error(SDKException.chat_failed(e))
+
     async def chat_with_timeout(
         self, thread_id: str, message: str, timeout: float
     ) -> AsyncIterator[ChatEvent]:

@@ -17,6 +17,8 @@ import com.alibaba.cloud.cms.samples.client.AgentClient;
 import com.alibaba.cloud.cms.samples.client.ChatEvent;
 import com.alibaba.cloud.cms.samples.client.Config;
 import com.alibaba.cloud.cms.samples.client.EventPrinter;
+import com.alibaba.cloud.cms.samples.client.InteractiveHandler;
+import com.alibaba.cloud.cms.samples.client.InteractiveResponse;
 import com.alibaba.cloud.cms.samples.client.SDKException;
 import com.alibaba.cloud.cms.samples.client.SimplePrinter;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -49,10 +51,16 @@ public class ChatFromFile {
         System.out.println(repeatStr("=", 60));
 
         try {
+            // Load configuration
             Config cfg = Config.loadFromEnv();
+
+            // Create client
             AgentClient client = new AgentClient(cfg);
+
+            // Ensure output directory exists
             Files.createDirectories(Paths.get(outputDir));
 
+            // Process files
             if (dirPath != null) {
                 processDirectory(client, dirPath);
             } else {
@@ -108,8 +116,10 @@ public class ChatFromFile {
 
     private static void processFile(AgentClient client, String file) {
         try {
+            // Load request file
             JsonNode reqFile = objectMapper.readTree(new File(file));
 
+            // Extract message
             String message = extractMessage(reqFile);
             if (message == null || message.isEmpty()) {
                 System.out.println("⚠️ 文件中没有消息内容");
@@ -119,10 +129,13 @@ public class ChatFromFile {
             System.out.printf("📄 文件: %s%n", new File(file).getName());
             System.out.printf("💬 消息: %s%n", truncate(message, 60));
 
+            // Create thread
             String threadId = client.createThread();
 
+            // Create output file
             PrintWriter outputFile = createOutputFile(file);
 
+            // Write request info
             writeOutput(outputFile, "# Request: " + new File(file).getName());
             writeOutput(outputFile, "# Time: " + Instant.now().toString());
             writeOutput(outputFile, "# ThreadID: " + threadId);
@@ -130,20 +143,20 @@ public class ChatFromFile {
 
             System.out.println(repeatStr("-", 60));
 
+            // Extract variables
             Map<String, Object> variables = extractVariables(reqFile);
 
+            // Send request
             long startTime = System.currentTimeMillis();
             BlockingQueue<ChatEvent> events = client.chatWithVariables(threadId, message, variables);
 
-            // 与 Java 11 蓝本一致：根据 simpleMode 选择打印器
-            // - simpleMode=true:  SimplePrinter，仅输出最终的 system Result（看起来"一次性刷出"）
-            // - simpleMode=false: EventPrinter，逐 SSE 事件输出（看起来"分段流式"）
-            // Aligned with Java 11 baseline: select printer based on simpleMode
+            // Process response
             SimplePrinter simplePrinter = simpleMode ? new SimplePrinter() : null;
             EventPrinter eventPrinter = simpleMode ? null : new EventPrinter(false, true);
+            InteractiveHandler interactiveHandler = new InteractiveHandler(client, null);
             int eventIndex = 0;
 
-            while (true) {
+            while (events != null) {
                 ChatEvent event = events.take();
                 eventIndex++;
 
@@ -157,10 +170,12 @@ public class ChatFromFile {
                     break;
                 }
 
+                // Write raw event
                 if (event.getRawJson() != null && !event.getRawJson().isEmpty()) {
                     writeOutput(outputFile, "[EVENT " + eventIndex + "]\n" + event.getRawJson() + "\n");
                 }
 
+                // 正常输出（先输出，确保交互事件内容可见）
                 if (simpleMode) {
                     String text = simplePrinter.processEvent(event);
                     if (!text.isEmpty()) {
@@ -168,6 +183,15 @@ public class ChatFromFile {
                     }
                 } else {
                     eventPrinter.printEvent(event, eventIndex);
+                }
+
+                // 检测交互事件（在输出之后）
+                InteractiveResponse interactiveResp = extractInteractiveEvent(event, interactiveHandler);
+                if (interactiveResp != null) {
+                    System.out.println("\n🔄 检测到交互事件，用户已响应...");
+                    events = interactiveHandler.resumeChat(threadId, interactiveResp, variables);
+                    eventIndex = 0;
+                    continue;
                 }
 
                 if (event.isDone()) {
@@ -178,6 +202,7 @@ public class ChatFromFile {
             long elapsed = System.currentTimeMillis() - startTime;
             System.out.println();
 
+            // Write final result
             if (simpleMode) {
                 String finalText = simplePrinter.getFinalText();
                 writeOutput(outputFile, "\n# Final Result:\n" + finalText);
@@ -218,7 +243,7 @@ public class ChatFromFile {
                 return objectMapper.convertValue(reqFile.get("variables"), Map.class);
             } catch (Exception ignored) {}
         }
-        return new HashMap<String, Object>();
+        return new HashMap<>();
     }
 
     private static PrintWriter createOutputFile(String inputFile) {
@@ -243,14 +268,6 @@ public class ChatFromFile {
         return s.substring(0, maxLen) + "...";
     }
 
-    private static String repeatStr(String s, int count) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < count; i++) {
-            sb.append(s);
-        }
-        return sb.toString();
-    }
-
     private static void printUsage() {
         System.out.println("用法:");
         System.out.println("  -file <path>   处理单个文件");
@@ -266,5 +283,43 @@ public class ChatFromFile {
         System.out.println("  -dir      请求文件目录");
         System.out.println("  -simple   简洁模式，只输出最终文本");
         System.out.println("  -output   输出目录 (默认: output)");
+    }
+
+    /**
+     * 从 ChatEvent 中检测交互事件并处理用户响应
+     */
+    private static InteractiveResponse extractInteractiveEvent(ChatEvent event, InteractiveHandler handler) {
+        if (event.getRawJson() == null || event.getRawJson().isEmpty()) {
+            return null;
+        }
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(event.getRawJson());
+            JsonNode messages = root.get("messages");
+            if (messages == null || !messages.isArray()) return null;
+
+            for (JsonNode msg : messages) {
+                JsonNode events = msg.get("events");
+                if (events == null || !events.isArray()) continue;
+
+                for (JsonNode evt : events) {
+                    if (InteractiveHandler.isInteractiveEvent(evt)) {
+                        String callId = msg.has("callId") ? msg.get("callId").asText() : "";
+                        return handler.handleEvent(evt, callId);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.printf("⚠️ 交互事件解析失败: %s%n", e.getMessage());
+        }
+        return null;
+    }
+
+    private static String repeatStr(String s, int count) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            sb.append(s);
+        }
+        return sb.toString();
     }
 }

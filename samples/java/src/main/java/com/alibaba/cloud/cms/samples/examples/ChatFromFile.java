@@ -17,6 +17,8 @@ import com.alibaba.cloud.cms.samples.client.AgentClient;
 import com.alibaba.cloud.cms.samples.client.ChatEvent;
 import com.alibaba.cloud.cms.samples.client.Config;
 import com.alibaba.cloud.cms.samples.client.EventPrinter;
+import com.alibaba.cloud.cms.samples.client.InteractiveHandler;
+import com.alibaba.cloud.cms.samples.client.InteractiveResponse;
 import com.alibaba.cloud.cms.samples.client.SDKException;
 import com.alibaba.cloud.cms.samples.client.SimplePrinter;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -151,9 +153,10 @@ public class ChatFromFile {
             // Process response
             SimplePrinter simplePrinter = simpleMode ? new SimplePrinter() : null;
             EventPrinter eventPrinter = simpleMode ? null : new EventPrinter(false, true);
+            InteractiveHandler interactiveHandler = new InteractiveHandler(client, null);
             int eventIndex = 0;
 
-            while (true) {
+            while (events != null) {
                 ChatEvent event = events.take();
                 eventIndex++;
 
@@ -172,7 +175,7 @@ public class ChatFromFile {
                     writeOutput(outputFile, "[EVENT " + eventIndex + "]\n" + event.getRawJson() + "\n");
                 }
 
-                // Output
+                // 正常输出（先输出，确保交互事件内容可见）
                 if (simpleMode) {
                     String text = simplePrinter.processEvent(event);
                     if (!text.isEmpty()) {
@@ -180,6 +183,15 @@ public class ChatFromFile {
                     }
                 } else {
                     eventPrinter.printEvent(event, eventIndex);
+                }
+
+                // 检测交互事件（在输出之后）
+                InteractiveResponse interactiveResp = extractInteractiveEvent(event, interactiveHandler);
+                if (interactiveResp != null) {
+                    System.out.println("\n🔄 检测到交互事件，用户已响应...");
+                    events = interactiveHandler.resumeChat(threadId, interactiveResp, variables);
+                    eventIndex = 0;
+                    continue;
                 }
 
                 if (event.isDone()) {
@@ -271,5 +283,35 @@ public class ChatFromFile {
         System.out.println("  -dir      请求文件目录");
         System.out.println("  -simple   简洁模式，只输出最终文本");
         System.out.println("  -output   输出目录 (默认: output)");
+    }
+
+    /**
+     * 从 ChatEvent 中检测交互事件并处理用户响应
+     */
+    private static InteractiveResponse extractInteractiveEvent(ChatEvent event, InteractiveHandler handler) {
+        if (event.getRawJson() == null || event.getRawJson().isEmpty()) {
+            return null;
+        }
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(event.getRawJson());
+            JsonNode messages = root.get("messages");
+            if (messages == null || !messages.isArray()) return null;
+
+            for (JsonNode msg : messages) {
+                JsonNode events = msg.get("events");
+                if (events == null || !events.isArray()) continue;
+
+                for (JsonNode evt : events) {
+                    if (InteractiveHandler.isInteractiveEvent(evt)) {
+                        String callId = msg.has("callId") ? msg.get("callId").asText() : "";
+                        return handler.handleEvent(evt, callId);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.printf("⚠️ 交互事件解析失败: %s%n", e.getMessage());
+        }
+        return null;
     }
 }
