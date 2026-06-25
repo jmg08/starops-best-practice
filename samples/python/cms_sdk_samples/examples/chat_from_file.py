@@ -16,6 +16,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from ..client import AgentClient, Config, SDKException, SimplePrinter, EventPrinter, InteractiveHandler, InteractiveResponse
 
@@ -70,7 +71,12 @@ async def process_file(client: AgentClient, file_path: str, output_dir: str, sim
         event_index = 0
 
         events = client.chat_with_variables(thread_id, message, variables)
-        async for event in events:
+        while events is not None:
+            try:
+                event = await events.__anext__()
+            except StopAsyncIteration:
+                break
+
             event_index += 1
 
             if event.has_error():

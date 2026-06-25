@@ -80,7 +80,7 @@ class InteractiveHandler:
             self._print(f"\n{message}")
 
         if modified_data:
-            self._print()
+            self._print("")
             for key, value in modified_data.items():
                 if key in ("title", "message"):
                     continue
@@ -274,10 +274,16 @@ class InteractiveHandler:
     def _do_prompt(self, prompt: str) -> str:
         self.writer.write(prompt)
         self.writer.flush()
-        return self.reader.readline()
+        try:
+            return self.reader.readline()
+        except Exception as e:
+            raise SDKException(ErrorCode.PARSE_ERROR, "读取输入失败", e)
 
     def _read_input(self) -> str:
-        return self.reader.readline()
+        try:
+            return self.reader.readline()
+        except Exception as e:
+            raise SDKException(ErrorCode.PARSE_ERROR, "读取输入失败", e)
 
     def _get_title(self, payload: Dict[str, Any]) -> Optional[str]:
         user_ack = payload.get("userAck", {})

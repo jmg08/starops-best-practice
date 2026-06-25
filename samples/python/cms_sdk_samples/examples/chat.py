@@ -55,7 +55,12 @@ async def main_async():
             # Send message
             printer.reset()
             events = client.chat(thread_id, user_input)
-            async for event in events:
+            while events is not None:
+                try:
+                    event = await events.__anext__()
+                except StopAsyncIteration:
+                    break
+
                 if event.has_error():
                     print(f"❌ 错误: {event.error}")
                     continue
@@ -69,6 +74,7 @@ async def main_async():
                 interactive_resp = _extract_interactive_event(event, interactive_handler)
                 if interactive_resp:
                     events = interactive_handler.resume_chat(thread_id, interactive_resp)
+                    continue
                     continue
 
             print()

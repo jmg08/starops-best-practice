@@ -77,21 +77,32 @@ async function main() {
       printer.reset();
       try {
         let events = client.chat(threadId, input);
-        for await (const event of events) {
-          if (event.error) {
-            console.log(`❌ 错误: ${event.error.message}`);
-            continue;
-          }
+        while (events) {
+          let shouldContinue = false;
+          for await (const event of events) {
+            if (event.error) {
+              console.log(`❌ 错误: ${event.error.message}`);
+              continue;
+            }
 
-          // 正常输出（先输出）
-          const text = printer.processEvent(event);
-          if (text) process.stdout.write(text);
+            // 正常输出（先输出）
+            const text = printer.processEvent(event);
+            if (text) process.stdout.write(text);
 
-          // 检测交互事件（在输出之后）
-          const interactiveResp = await extractInteractiveEvent(event, interactiveHandler);
-          if (interactiveResp) {
-            events = interactiveHandler.resumeChat(threadId, interactiveResp);
+            // 检测交互事件（在输出之后）
+            const interactiveResp = await extractInteractiveEvent(event, interactiveHandler);
+            if (interactiveResp) {
+              events = interactiveHandler.resumeChat(threadId, interactiveResp);
+              shouldContinue = true;
+              break;
+            }
+
+            if (event.isDone) {
+              shouldContinue = false;
+              break;
+            }
           }
+          if (!shouldContinue) break;
         }
       } catch (chatError) {
         console.log(`❌ 对话异常: ${(chatError as Error).message}`);

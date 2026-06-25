@@ -81,18 +81,6 @@ export class InteractiveHandler {
     }
     console.log('--------------');
 
-    if (options.length > 0) {
-      const parts = options.map((opt, i) =>
-        `[${this.getOptionValue(opt)}] ${this.getOptionLabel(opt, i)}`);
-      await this.prompt(`请输入 ${parts.join(', ')}: `);
-    } else {
-      await this.prompt('请输入 [y/yes] 确认，[n/no] 取消: ');
-    }
-
-    const input = (await this.prompt('')).trim().toLowerCase();
-    // TODO: the above is wrong — we need to capture the prompt's result
-    // Actually, let me restructure this properly
-
     let userInput: string;
     if (options.length > 0) {
       const parts = options.map((opt, i) =>
