@@ -4,13 +4,13 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.alibaba.cloud.cms</groupId>
-    <artifactId>cms-sdk-samples</artifactId>
+    <groupId>com.alibaba.cloud.starops</groupId>
+    <artifactId>starops-sdk-samples</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
-    <name>CMS SDK Samples for Java</name>
-    <description>Alibaba Cloud CMS SDK samples for Java</description>
+    <name>STAROps SDK Samples for Java</name>
+    <description>Alibaba Cloud STAROps SDK samples for Java</description>
 
     <properties>
         <maven.compiler.source>11</maven.compiler.source>
@@ -22,7 +22,7 @@
     </properties>
 
     <dependencies>
-        <!-- Alibaba Cloud StarOps 异步 SDK（支持 SSE 流式迭代） -->
+        <!-- Alibaba Cloud STAROps 异步 SDK（支持 SSE 流式迭代） -->
         <dependency>
             <groupId>com.aliyun</groupId>
             <artifactId>alibabacloud-starops20260428</artifactId>
@@ -99,7 +99,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.alibaba.cloud.cms.samples.examples.Chat</mainClass>      
+                            <mainClass>com.alibaba.cloud.starops.samples.examples.Chat</mainClass>      
                         </manifest>
                     </archive>
                 </configuration>

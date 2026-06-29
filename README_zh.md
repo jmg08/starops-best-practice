@@ -1,4 +1,4 @@
-# CMS SDK 示例
+# STAROps SDK 示例
 
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](samples/golang/)
 [![Java](https://img.shields.io/badge/Java-11+-orange?style=flat&logo=openjdk)](samples/java/)
@@ -8,17 +8,17 @@
 
 [English](README.md)
 
-为阿里云 CMS（云监控服务）数字员工提供的生产就绪示例程序，支持多种编程语言。
+为阿里云 STAROps（全域智能运维平台服务）数字员工提供的生产就绪示例程序，支持多种编程语言。
 
 ---
 
 ## 工作原理
 
-CMS 数字员工的核心交互模式是**自然语言对话**——你用自然语言描述需求，数字员工理解语义后自动完成查询、分析和回答。
+STAROps 数字员工的核心交互模式是**自然语言对话**——你用自然语言描述需求，数字员工理解语义后自动完成查询、分析和回答。
 
 ```
 ┌───────────────┐       HTTP POST        ┌──────────────────┐
-│   你的应用     │  ──────────────────►   │  CMS 数字员工 API │
+│   你的应用     │  ──────────────────►   │  STAROps 数字员工 API │
 │  (SDK 客户端)  │  ◄── SSE 流式响应 ──  │                  │
 └───────────────┘                        └──────────────────┘
 ```
@@ -88,11 +88,11 @@ CMS 数字员工的核心交互模式是**自然语言对话**——你用自然
 
 ### 推荐使用方式
 
-实际开发中，建议参考 `requests/cms/` 下的示例文件，**构造一个临时 JSON 文件**，然后通过 `chat-from-file` 示例直接调用：
+实际开发中，建议参考 `requests/starops/` 下的示例文件，**构造一个临时 JSON 文件**，然后通过 `chat-from-file` 示例直接调用：
 
 ```bash
 # 1. 复制一个最接近你场景的示例文件
-cp requests/cms/data_agent.json /tmp/my_request.json
+cp requests/starops/data_agent.json /tmp/my_request.json
 
 # 2. 编辑填入你的实际参数（workspace、project、问题内容等）
 
@@ -130,7 +130,7 @@ go run ./cmd/chat-from-file/ -file /tmp/my_request.json
 | **SQL 生成** | "查看有多少种类的 admin_emails" | 自然语言自动转 SQL，需指定 `logstore` 和 `skill: sql_generation` |
 | **通用对话** | "统计错误数量" | 开放式运维问答，仅需基础 `variables` |
 
-> 不同场景需要的 `variables` 字段略有差异，参考 `requests/cms/` 下对应的 JSON 文件即可了解具体参数。
+> 不同场景需要的 `variables` 字段略有差异，参考 `requests/starops/` 下对应的 JSON 文件即可了解具体参数。
 
 ---
 
@@ -152,7 +152,7 @@ go run ./cmd/chat-from-file/ -file /tmp/my_request.json
 
 ### 前置条件
 
-- 具有 CMS 访问权限的阿里云账号
+- 具有 STAROps 访问权限的阿里云账号
 - Access Key ID 和 Secret
 
 ### 环境变量
@@ -161,7 +161,7 @@ go run ./cmd/chat-from-file/ -file /tmp/my_request.json
 
 | 变量 | 必需 | 说明 |
 |------|------|------|
-| `VIBEOPS_ENDPOINT` | ✅ | CMS API 端点，格式: `cms.{region-id}.aliyuncs.com` |
+| `VIBEOPS_ENDPOINT` | ✅ | STAROps API 端点，格式: `cms.{region-id}.aliyuncs.com` |
 | `VIBEOPS_REGION` | ❌ | 地域，默认 `cn-hangzhou` |
 | `ALIBABA_CLOUD_ACCESS_KEY_ID` | ✅ | Access Key ID |
 | `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | ✅ | Access Key Secret |
@@ -181,7 +181,7 @@ go run ./cmd/chat/
 cd samples/java
 cp .env.example .env  # 编辑填入您的凭证
 mvn compile
-mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.Chat"
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.starops.samples.examples.Chat"
 ```
 
 ### Java 8
@@ -190,7 +190,7 @@ mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.Chat"
 cd samples/java8
 cp .env.example .env  # 编辑填入您的凭证
 mvn compile
-mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.Chat"
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.starops.samples.examples.Chat"
 ```
 
 ### Python
@@ -200,7 +200,7 @@ cd samples/python
 python -m venv .venv && source .venv/bin/activate
 pip install -e .
 cp .env.example .env  # 编辑填入您的凭证
-python -m cms_sdk_samples.examples.chat
+python -m starops_sdk_samples.examples.chat
 ```
 
 ### TypeScript
@@ -226,21 +226,21 @@ npx tsx src/examples/chat.ts
 
 ### chat-from-file
 
-支持从 `requests/cms/` 下的共享 JSON 文件加载请求参数：
+支持从 `requests/starops/` 下的共享 JSON 文件加载请求参数：
 
 ```bash
 # Go
-go run ./cmd/chat-from-file/ -file ../../requests/cms/entity.json
+go run ./cmd/chat-from-file/ -file ../../requests/starops/entity.json
 
 # Java / Java 8
-mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.ChatFromFile" \
-    -Dexec.args="-file ../../requests/cms/entity.json"
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.starops.samples.examples.ChatFromFile" \
+    -Dexec.args="-file ../../requests/starops/entity.json"
 
 # Python
-python -m cms_sdk_samples.examples.chat_from_file -file ../../requests/cms/entity.json
+python -m starops_sdk_samples.examples.chat_from_file -file ../../requests/starops/entity.json
 
 # TypeScript
-npx tsx src/examples/chat-from-file.ts -file ../../requests/cms/entity.json
+npx tsx src/examples/chat-from-file.ts -file ../../requests/starops/entity.json
 ```
 
 ### thread-manager
@@ -250,11 +250,11 @@ npx tsx src/examples/chat-from-file.ts -file ../../requests/cms/entity.json
 go run ./cmd/thread-manager/ list
 
 # Java / Java 8
-mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.ThreadManager" \
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.starops.samples.examples.ThreadManager" \
     -Dexec.args="list"
 
 # Python
-python -m cms_sdk_samples.examples.thread_manager list
+python -m starops_sdk_samples.examples.thread_manager list
 
 # TypeScript
 npx tsx src/examples/thread-manager.ts list
@@ -270,7 +270,7 @@ npx tsx src/examples/thread-manager.ts list
 ├── README_zh.md
 ├── .env.example
 ├── requests/                          # 共享请求 JSON 文件
-│   └── cms/
+│   └── starops/
 │       ├── entity.json                # 实体查询
 │       ├── sls_chat.json              # SLS 日志查询
 │       ├── sql_generation.json        # SQL 生成

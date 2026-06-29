@@ -1,6 +1,6 @@
 /**
- * Error handling for CMS SDK
- * CMS SDK 错误处理
+ * Error handling for STAROps SDK
+ * STAROps SDK 错误处理
  */
 
 /** 错误码 / Error code */

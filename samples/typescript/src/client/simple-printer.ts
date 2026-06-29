@@ -1,6 +1,6 @@
 /**
- * Simple printer for CMS SDK
- * CMS SDK 简洁打印器
+ * Simple printer for STAROps SDK
+ * STAROps SDK 简洁打印器
  */
 
 import { ChatEvent } from './agent-client.js';

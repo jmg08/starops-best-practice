@@ -1,4 +1,4 @@
-// 会话管理工具 - 演示 CMS SDK 的其他接口
+// 会话管理工具 - 演示 StarOps SDK 的其他接口
 // 用法:
 //
 //	go run ./cmd/thread-manager/ list              # 列出会话
@@ -69,7 +69,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println("会话管理工具 - CMS SDK 接口演示")
+	fmt.Println("会话管理工具 - StarOps SDK 接口演示")
 	fmt.Println(strings.Repeat("=", 50))
 	fmt.Println("\n用法:")
 	fmt.Println("  go run ./cmd/thread-manager/ <command> [args]")

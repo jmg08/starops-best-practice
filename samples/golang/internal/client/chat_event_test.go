@@ -3,12 +3,12 @@ package client
 import (
 	"testing"
 
-	cms "github.com/alibabacloud-go/starops-20260428/client"
+	starops "github.com/alibabacloud-go/starops-20260428/client"
 	"github.com/alibabacloud-go/tea/dara"
 )
 
 func TestIsDoneMessage_EventField(t *testing.T) {
-	resp := &cms.CreateChatResponse{}
+	resp := &starops.CreateChatResponse{}
 	resp.SetEvent("done")
 	if !isDoneMessage(resp) {
 		t.Error("event=done 时应返回 true")
@@ -16,19 +16,19 @@ func TestIsDoneMessage_EventField(t *testing.T) {
 }
 
 func TestIsDoneMessage_MessagesFallback(t *testing.T) {
-	msg := &cms.CreateChatResponseBodyMessages{}
+	msg := &starops.CreateChatResponseBodyMessages{}
 	msg.SetType("done")
-	body := &cms.CreateChatResponseBody{
-		Messages: []*cms.CreateChatResponseBodyMessages{msg},
+	body := &starops.CreateChatResponseBody{
+		Messages: []*starops.CreateChatResponseBodyMessages{msg},
 	}
-	resp := &cms.CreateChatResponse{Body: body}
+	resp := &starops.CreateChatResponse{Body: body}
 	if !isDoneMessage(resp) {
 		t.Error("messages[].type=done 时应返回 true")
 	}
 }
 
 func TestIsDoneMessage_NotDone(t *testing.T) {
-	resp := &cms.CreateChatResponse{}
+	resp := &starops.CreateChatResponse{}
 	resp.SetEvent("text")
 	if isDoneMessage(resp) {
 		t.Error("event=text 时应返回 false")
@@ -42,14 +42,14 @@ func TestIsDoneMessage_NilResp(t *testing.T) {
 }
 
 func TestIsDoneMessage_NilBody(t *testing.T) {
-	resp := &cms.CreateChatResponse{}
+	resp := &starops.CreateChatResponse{}
 	if isDoneMessage(resp) {
 		t.Error("nil body 且无 event 时应返回 false")
 	}
 }
 
 func TestChatEvent_IdAndEvent(t *testing.T) {
-	resp := &cms.CreateChatResponse{}
+	resp := &starops.CreateChatResponse{}
 	resp.SetEvent("text")
 	resp.SetId("evt-123")
 	// 验证 ChatEvent 结构体包含 Id 和 Event 字段

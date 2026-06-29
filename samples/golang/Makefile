@@ -1,9 +1,9 @@
-# CMS SDK Samples - Makefile
-# CMS SDK 示例项目 - 构建脚本
+# STAROps SDK Samples - Makefile
+# STAROps SDK 示例项目 - 构建脚本
 #
 # This Makefile provides common commands for building, testing, and running
-# the CMS SDK sample programs.
-# 本 Makefile 提供构建、测试和运行 CMS SDK 示例程序的常用命令。
+# the STAROps SDK sample programs.
+# 本 Makefile 提供构建、测试和运行 STAROps SDK 示例程序的常用命令。
 #
 # Usage / 使用方法:
 #   make help     - Show available commands / 显示可用命令
@@ -261,8 +261,8 @@ all: deps lint build test
 ## Show this help message / 显示帮助信息
 help:
 	@echo ""
-	@echo "CMS SDK Samples - Makefile Commands"
-	@echo "CMS SDK 示例项目 - Makefile 命令"
+	@echo "STAROps SDK Samples - Makefile Commands"
+	@echo "STAROps SDK 示例项目 - Makefile 命令"
 	@echo ""
 	@echo "Usage / 使用方法: make [target]"
 	@echo ""

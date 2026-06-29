@@ -90,7 +90,7 @@ async function deleteThread(client: AgentClient, threadId: string): Promise<void
 }
 
 function printUsage(): void {
-  console.log('会话管理工具 - CMS SDK 接口演示 (TypeScript)');
+  console.log('会话管理工具 - STAROps SDK 接口演示 (TypeScript)');
   console.log('='.repeat(50));
   console.log('\n用法:');
   console.log('  npm run thread-manager -- <command> [args]');

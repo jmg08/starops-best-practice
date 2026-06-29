@@ -1,6 +1,6 @@
 /**
- * Interactive handler for CMS SDK
- * CMS SDK 交互处理器
+ * Interactive handler for STAROps SDK
+ * STAROps SDK 交互处理器
  */
 
 import * as readline from 'readline';

@@ -1,3 +1,3 @@
 """
-Tests for CMS SDK Samples
+Tests for STAROps SDK Samples
 """

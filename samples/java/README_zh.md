@@ -1,6 +1,6 @@
-# VibeOps CMS SDK Java 示例
+# VibeOps STAROps SDK Java 示例
 
-阿里云 CMS SDK Java 语言示例程序。
+阿里云 STAROps SDK Java 语言示例程序。
 
 ## 快速开始
 
@@ -13,14 +13,14 @@ cp .env.example .env
 mvn clean compile
 
 # 3. 运行
-mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.Chat"
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.starops.samples.examples.Chat"
 ```
 
 ## 环境变量
 
 | 变量 | 必需 | 说明 |
 |-----|------|-----|
-| VIBEOPS_ENDPOINT | ✅ | StarOps API 端点，格式: `starops.{region-id}.aliyuncs.com` |
+| VIBEOPS_ENDPOINT | ✅ | STAROps API 端点，格式: `starops.{region-id}.aliyuncs.com` |
 | ALIBABA_CLOUD_ACCESS_KEY_ID | ✅ | Access Key ID |
 | ALIBABA_CLOUD_ACCESS_KEY_SECRET | ✅ | Access Key Secret |
 | VIBEOPS_EMPLOYEE_NAME | ❌ | 数字员工名称 (默认 default) |
@@ -30,7 +30,7 @@ mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.Chat"
 ### Chat - 交互式对话
 
 ```bash
-mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.Chat"
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.starops.samples.examples.Chat"
 ```
 
 支持多轮对话，在同一会话中保持上下文。
@@ -39,18 +39,18 @@ mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.Chat"
 
 ```bash
 # 处理单个文件
-mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.ChatFromFile" \
-    -Dexec.args="-file ../../requests/cms/entity.json"
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.starops.samples.examples.ChatFromFile" \
+    -Dexec.args="-file ../../requests/starops/entity.json"
 
 # 批量处理目录
-mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.ChatFromFile" \
-    -Dexec.args="-dir ../../requests/cms/"
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.starops.samples.examples.ChatFromFile" \
+    -Dexec.args="-dir ../../requests/starops/"
 ```
 
 ### ChatInteractive - 交互事件处理
 
 ```bash
-mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.ChatInteractive"
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.starops.samples.examples.ChatInteractive"
 ```
 
 处理 Agent 返回的确认、选择、输入等交互事件。
@@ -59,15 +59,15 @@ mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.ChatInter
 
 ```bash
 # 列出会话
-mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.ThreadManager" \
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.starops.samples.examples.ThreadManager" \
     -Dexec.args="list"
 
 # 查看详情
-mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.ThreadManager" \
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.starops.samples.examples.ThreadManager" \
     -Dexec.args="get <thread-id>"
 
 # 删除会话
-mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.ThreadManager" \
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.starops.samples.examples.ThreadManager" \
     -Dexec.args="delete <thread-id>"
 ```
 
@@ -82,7 +82,7 @@ mvn test
 ```
 samples/java/
 ├── src/
-│   ├── main/java/com/alibaba/cloud/cms/samples/
+│   ├── main/java/com/alibaba/cloud/starops/samples/
 │   │   ├── client/        # 客户端实现
 │   │   ├── types/         # 类型定义
 │   │   ├── logger/        # 日志工具
@@ -96,4 +96,4 @@ samples/java/
 
 - Java 11+
 - Maven 3.6+
-- Alibaba Cloud CMS SDK
+- Alibaba Cloud STAROps SDK

@@ -1,6 +1,6 @@
-# VibeOps CMS SDK Python 示例
+# VibeOps STAROps SDK Python 示例
 
-阿里云 CMS SDK Python 语言示例程序。
+阿里云 STAROps SDK Python 语言示例程序。
 
 ## 快速开始
 
@@ -13,14 +13,14 @@ cp .env.example .env
 pip install -e .
 
 # 3. 运行
-python -m cms_sdk_samples.examples.chat
+python -m starops_sdk_samples.examples.chat
 ```
 
 ## 环境变量
 
 | 变量 | 必需 | 说明 |
 |-----|------|-----|
-| VIBEOPS_ENDPOINT | ✅ | StarOps API 端点，格式: `starops.{region-id}.aliyuncs.com` |
+| VIBEOPS_ENDPOINT | ✅ | STAROps API 端点，格式: `starops.{region-id}.aliyuncs.com` |
 | ALIBABA_CLOUD_ACCESS_KEY_ID | ✅ | Access Key ID |
 | ALIBABA_CLOUD_ACCESS_KEY_SECRET | ✅ | Access Key Secret |
 | VIBEOPS_EMPLOYEE_NAME | ❌ | 数字员工名称 (默认 default) |
@@ -30,7 +30,7 @@ python -m cms_sdk_samples.examples.chat
 ### chat - 交互式对话
 
 ```bash
-python -m cms_sdk_samples.examples.chat
+python -m starops_sdk_samples.examples.chat
 ```
 
 支持多轮对话，在同一会话中保持上下文。
@@ -39,13 +39,13 @@ python -m cms_sdk_samples.examples.chat
 
 ```bash
 # 处理单个文件（默认显示每个事件的详细信息）
-python -m cms_sdk_samples.examples.chat_from_file -file ../../requests/cms/entity.json
+python -m starops_sdk_samples.examples.chat_from_file -file ../../requests/starops/entity.json
 
 # 批量处理目录
-python -m cms_sdk_samples.examples.chat_from_file -dir ../../requests/cms/
+python -m starops_sdk_samples.examples.chat_from_file -dir ../../requests/starops/
 
 # 简洁模式（仅输出最终文本）
-python -m cms_sdk_samples.examples.chat_from_file -file ../../requests/cms/entity.json -simple
+python -m starops_sdk_samples.examples.chat_from_file -file ../../requests/starops/entity.json -simple
 ```
 
 默认使用 `EventPrinter` 打印每个 SSE 事件的详细信息（角色、内容、工具调用、Agent 调用、耗时等），`-simple` 模式使用 `SimplePrinter` 仅输出最终文本。
@@ -53,7 +53,7 @@ python -m cms_sdk_samples.examples.chat_from_file -file ../../requests/cms/entit
 ### chat_interactive - 交互事件处理
 
 ```bash
-python -m cms_sdk_samples.examples.chat_interactive
+python -m starops_sdk_samples.examples.chat_interactive
 ```
 
 处理 Agent 返回的确认、选择、输入等交互事件。
@@ -62,13 +62,13 @@ python -m cms_sdk_samples.examples.chat_interactive
 
 ```bash
 # 列出会话
-python -m cms_sdk_samples.examples.thread_manager list
+python -m starops_sdk_samples.examples.thread_manager list
 
 # 查看详情
-python -m cms_sdk_samples.examples.thread_manager get <thread-id>
+python -m starops_sdk_samples.examples.thread_manager get <thread-id>
 
 # 删除会话
-python -m cms_sdk_samples.examples.thread_manager delete <thread-id>
+python -m starops_sdk_samples.examples.thread_manager delete <thread-id>
 ```
 
 ## 测试
@@ -82,7 +82,7 @@ pytest
 
 ```
 samples/python/
-├── cms_sdk_samples/
+├── starops_sdk_samples/
 │   ├── client/        # 客户端实现
 │   ├── types/         # 类型定义
 │   ├── logger/        # 日志工具
@@ -95,4 +95,4 @@ samples/python/
 ## 依赖要求
 
 - Python 3.8+
-- Alibaba Cloud CMS SDK
+- Alibaba Cloud STAROps SDK

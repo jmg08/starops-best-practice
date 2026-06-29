@@ -1,7 +1,7 @@
 {
-  "name": "cms-sdk-samples",
+  "name": "starops-sdk-samples",
   "version": "1.0.0",
-  "description": "Alibaba Cloud CMS SDK samples for TypeScript",
+  "description": "Alibaba Cloud STAROps SDK samples for TypeScript",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -16,7 +16,7 @@
   },
   "keywords": [
     "alibaba-cloud",
-    "cms",
+    "starops",
     "sdk",
     "samples"
   ],

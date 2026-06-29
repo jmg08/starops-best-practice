@@ -1,4 +1,4 @@
-# CMS SDK Samples
+# STAROps SDK Samples
 
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](samples/golang/)
 [![Java](https://img.shields.io/badge/Java-11+-orange?style=flat&logo=openjdk)](samples/java/)
@@ -8,17 +8,17 @@
 
 [中文文档](README_zh.md)
 
-Production-ready sample programs for interacting with Alibaba Cloud CMS (Cloud Monitor Service) digital employees across multiple programming languages.
+Production-ready sample programs for interacting with Alibaba Cloud STAROps digital employees across multiple programming languages.
 
 ---
 
 ## How It Works
 
-The core interaction model of CMS digital employees is **natural language conversation** — you describe your needs in plain language, and the digital employee understands, queries, analyzes, and responds automatically.
+The core interaction model of STAROps digital employees is **natural language conversation** — you describe your needs in plain language, and the digital employee understands, queries, analyzes, and responds automatically.
 
 ```
 ┌───────────────┐       HTTP POST        ┌──────────────────┐
-│  Your App     │  ──────────────────►   │  CMS Digital      │
+│  Your App     │  ──────────────────►   │  STAROps Digital      │
 │  (SDK Client) │  ◄── SSE Streaming ──  │  Employee API     │
 └───────────────┘                        └──────────────────┘
 ```
@@ -88,11 +88,11 @@ Each call requires a fully constructed request. Here is a typical request struct
 
 ### Recommended Usage
 
-In practice, we recommend copying a sample JSON file from `requests/cms/`, **creating a temporary JSON file** with your parameters, and running it via `chat-from-file`:
+In practice, we recommend copying a sample JSON file from `requests/starops/`, **creating a temporary JSON file** with your parameters, and running it via `chat-from-file`:
 
 ```bash
 # 1. Copy the sample closest to your scenario
-cp requests/cms/data_agent.json /tmp/my_request.json
+cp requests/starops/data_agent.json /tmp/my_request.json
 
 # 2. Edit with your actual parameters (workspace, project, question, etc.)
 
@@ -132,7 +132,7 @@ The digital employee supports a variety of operations scenarios. Describe your n
 | **Data Insights** | "How many alerts in the last hour?" | Complex data analysis via the Data Agent |
 | **General Chat** | "Count the number of errors" | Open-ended operations Q&A, only basic `variables` needed |
 
-> Different scenarios require slightly different `variables` fields. Refer to the corresponding JSON files under `requests/cms/` for specific parameters.
+> Different scenarios require slightly different `variables` fields. Refer to the corresponding JSON files under `requests/starops/` for specific parameters.
 
 ---
 
@@ -154,7 +154,7 @@ The digital employee supports a variety of operations scenarios. Describe your n
 
 ### Prerequisites
 
-- Alibaba Cloud account with CMS access
+- Alibaba Cloud account with STAROps access
 - Access Key ID and Secret
 
 ### Environment Variables
@@ -163,7 +163,7 @@ All language samples use the same environment variables (via `.env` file):
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `VIBEOPS_ENDPOINT` | ✅ | CMS API endpoint, format: `cms.{region-id}.aliyuncs.com` |
+| `VIBEOPS_ENDPOINT` | ✅ | STAROps API endpoint, format: `cms.{region-id}.aliyuncs.com` |
 | `VIBEOPS_REGION` | ❌ | Region, default `cn-hangzhou` |
 | `ALIBABA_CLOUD_ACCESS_KEY_ID` | ✅ | Access Key ID |
 | `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | ✅ | Access Key Secret |
@@ -183,7 +183,7 @@ go run ./cmd/chat/
 cd samples/java
 cp .env.example .env  # edit with your credentials
 mvn compile
-mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.Chat"
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.starops.samples.examples.Chat"
 ```
 
 ### Java 8
@@ -192,7 +192,7 @@ mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.Chat"
 cd samples/java8
 cp .env.example .env  # edit with your credentials
 mvn compile
-mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.Chat"
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.starops.samples.examples.Chat"
 ```
 
 ### Python
@@ -202,7 +202,7 @@ cd samples/python
 python -m venv .venv && source .venv/bin/activate
 pip install -e .
 cp .env.example .env  # edit with your credentials
-python -m cms_sdk_samples.examples.chat
+python -m starops_sdk_samples.examples.chat
 ```
 
 ### TypeScript
@@ -228,21 +228,21 @@ All languages implement the same set of examples:
 
 ### chat-from-file
 
-Supports loading request parameters from shared JSON files in `requests/cms/`:
+Supports loading request parameters from shared JSON files in `requests/starops/`:
 
 ```bash
 # Go
-go run ./cmd/chat-from-file/ -file ../../requests/cms/entity.json
+go run ./cmd/chat-from-file/ -file ../../requests/starops/entity.json
 
 # Java / Java 8
-mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.ChatFromFile" \
-    -Dexec.args="-file ../../requests/cms/entity.json"
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.starops.samples.examples.ChatFromFile" \
+    -Dexec.args="-file ../../requests/starops/entity.json"
 
 # Python
-python -m cms_sdk_samples.examples.chat_from_file -file ../../requests/cms/entity.json
+python -m starops_sdk_samples.examples.chat_from_file -file ../../requests/starops/entity.json
 
 # TypeScript
-npx tsx src/examples/chat-from-file.ts -file ../../requests/cms/entity.json
+npx tsx src/examples/chat-from-file.ts -file ../../requests/starops/entity.json
 ```
 
 ### thread-manager
@@ -252,11 +252,11 @@ npx tsx src/examples/chat-from-file.ts -file ../../requests/cms/entity.json
 go run ./cmd/thread-manager/ list
 
 # Java / Java 8
-mvn exec:java -Dexec.mainClass="com.alibaba.cloud.cms.samples.examples.ThreadManager" \
+mvn exec:java -Dexec.mainClass="com.alibaba.cloud.starops.samples.examples.ThreadManager" \
     -Dexec.args="list"
 
 # Python
-python -m cms_sdk_samples.examples.thread_manager list
+python -m starops_sdk_samples.examples.thread_manager list
 
 # TypeScript
 npx tsx src/examples/thread-manager.ts list
@@ -272,7 +272,7 @@ npx tsx src/examples/thread-manager.ts list
 ├── README_zh.md
 ├── .env.example
 ├── requests/                          # Shared request JSON files
-│   └── cms/
+│   └── starops/
 │       ├── entity.json                # Entity query
 │       ├── sls_chat.json              # SLS log query (sql_generation)
 │       ├── sql_generation.json        # SQL generation

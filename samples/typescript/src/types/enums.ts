@@ -1,6 +1,6 @@
 /**
- * Enumeration types for CMS SDK
- * CMS SDK 枚举类型
+ * Enumeration types for STAROps SDK
+ * STAROps SDK 枚举类型
  */
 
 /** 事件类型 / Event type */

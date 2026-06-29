@@ -1,6 +1,6 @@
-# VibeOps CMS SDK Go 语言示例
+# VibeOps STAROps SDK Go 语言示例
 
-本项目是一组示例程序，演示如何使用阿里云 CMS SDK 与 VibeOps 数字员工进行交互。示例涵盖多种场景，包括交互式对话、多轮会话、超时控制、交互事件处理和会话管理。
+本项目是一组示例程序，演示如何使用阿里云 STAROps SDK 与 VibeOps 数字员工进行交互。示例涵盖多种场景，包括交互式对话、多轮会话、超时控制、交互事件处理和会话管理。
 
 ## 目录
 
@@ -92,7 +92,7 @@ samples/golang/
 
 | 变量名 | 必需 | 描述 | 示例 |
 |--------|------|------|------|
-| `VIBEOPS_ENDPOINT` | ✅ | StarOps API 端点，格式: `starops.{region-id}.aliyuncs.com` | `starops.cn-hongkong.aliyuncs.com` |
+| `VIBEOPS_ENDPOINT` | ✅ | STAROps API 端点，格式: `starops.{region-id}.aliyuncs.com` | `starops.cn-hongkong.aliyuncs.com` |
 | `ALIBABA_CLOUD_ACCESS_KEY_ID` | ✅ | 阿里云 Access Key ID | |
 | `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | ✅ | 阿里云 Access Key Secret | |
 | `VIBEOPS_REGION` | ❌ | 地域（需与端点匹配） | `cn-hongkong` |
@@ -130,14 +130,14 @@ go run ./cmd/chat-simple/
 
 **输出示例：**
 ```
-👤 请输入消息: 什么是云监控？
-🤖 发送消息: 什么是云监控？
+👤 请输入消息: 什么是全域智能运维平台？
+🤖 发送消息: 什么是全域智能运维平台？
 ------------------------------------------------------------
-云监控是一项帮助您监控云资源的服务...
+全域智能运维平台是一项帮助您监控云资源的服务...
 ------------------------------------------------------------
 📄 最终文本 (Final Text):
 ------------------------------
-云监控是一项帮助您监控云资源的服务...
+全域智能运维平台是一项帮助您监控云资源的服务...
 ```
 
 ### 3. 超时控制 (`cmd/chat-timeout`)
@@ -163,7 +163,7 @@ go run ./cmd/chat-timeout/
 
 ### 4. 交互事件处理 (`cmd/chat-interactive`)
 
-演示处理来自 CMS Agent 的各种交互事件。
+演示处理来自 STAROps Agent 的各种交互事件。
 
 ```bash
 go run ./cmd/chat-interactive/
@@ -198,7 +198,7 @@ go run ./cmd/chat-multi-turn/
 
 **对话流程示例：**
 1. 用户自我介绍
-2. 用户询问云监控相关问题
+2. 用户询问全域智能运维平台相关问题
 3. 用户测试上下文（询问 Agent 是否记得用户名字）
 4. 用户请求对话摘要
 
@@ -233,7 +233,7 @@ go run ./cmd/thread-manager/ delete <thread-id>
 从 JSON 文件加载对话请求，适用于复杂请求场景。
 
 ```bash
-go run ./cmd/chat-from-file/ -file ../../requests/cms/entity.json
+go run ./cmd/chat-from-file/ -file ../../requests/starops/entity.json
 ```
 
 **参数：**
@@ -328,7 +328,7 @@ type ChatOptions struct {
 
 ```go
 type ChatEvent struct {
-    Body       *cms.CreateChatResponseBody  // 响应体
+    Body       *starops.CreateChatResponseBody  // 响应体
     RawJSON    string                       // 原始 JSON 字符串
     StatusCode int32                        // HTTP 状态码
     IsDone     bool                         // 对话是否完成
@@ -810,7 +810,7 @@ variables := map[string]interface{}{
 
 ## 请求文件格式
 
-请求文件是定义对话请求的 JSON 文件。参见 `requests/cms/` 目录中的示例。
+请求文件是定义对话请求的 JSON 文件。参见 `requests/starops/` 目录中的示例。
 
 ```json
 {
@@ -851,7 +851,7 @@ variables := map[string]interface{}{
 
 ## SDK 依赖
 
-- `github.com/alibabacloud-go/starops-20260428` - 阿里云 StarOps SDK
+- `github.com/alibabacloud-go/starops-20260428` - 阿里云 STAROps SDK
 - `github.com/alibabacloud-go/darabonba-openapi/v2` - OpenAPI 客户端
 - `github.com/alibabacloud-go/tea` - Tea 运行时
 

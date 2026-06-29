@@ -1,6 +1,6 @@
-# VibeOps CMS SDK TypeScript 示例
+# VibeOps STAROps SDK TypeScript 示例
 
-阿里云 CMS SDK TypeScript 语言示例程序。
+阿里云 STAROps SDK TypeScript 语言示例程序。
 
 ## 快速开始
 
@@ -20,7 +20,7 @@ npm run chat
 
 | 变量 | 必需 | 说明 |
 |-----|------|-----|
-| VIBEOPS_ENDPOINT | ✅ | StarOps API 端点，格式: `starops.{region-id}.aliyuncs.com` |
+| VIBEOPS_ENDPOINT | ✅ | STAROps API 端点，格式: `starops.{region-id}.aliyuncs.com` |
 | ALIBABA_CLOUD_ACCESS_KEY_ID | ✅ | Access Key ID |
 | ALIBABA_CLOUD_ACCESS_KEY_SECRET | ✅ | Access Key Secret |
 | VIBEOPS_EMPLOYEE_NAME | ❌ | 数字员工名称 (默认 default) |
@@ -39,13 +39,13 @@ npm run chat
 
 ```bash
 # 处理单个文件（默认显示每个事件的详细信息）
-npm run chat-from-file -- -file ../../requests/cms/entity.json
+npm run chat-from-file -- -file ../../requests/starops/entity.json
 
 # 批量处理目录
-npm run chat-from-file -- -dir ../../requests/cms/
+npm run chat-from-file -- -dir ../../requests/starops/
 
 # 简洁模式（仅输出最终文本）
-npm run chat-from-file -- -file ../../requests/cms/entity.json -simple
+npm run chat-from-file -- -file ../../requests/starops/entity.json -simple
 ```
 
 默认使用 `EventPrinter` 打印每个 SSE 事件的详细信息（角色、内容、工具调用、Agent 调用、耗时等），`-simple` 模式使用 `SimplePrinter` 仅输出最终文本。
@@ -101,4 +101,4 @@ samples/typescript/
 
 - Node.js 18+
 - TypeScript 5.0+
-- Alibaba Cloud CMS SDK
+- Alibaba Cloud STAROps SDK

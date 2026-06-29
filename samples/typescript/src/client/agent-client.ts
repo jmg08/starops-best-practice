@@ -1,6 +1,6 @@
 /**
- * Agent client for CMS SDK
- * CMS SDK Agent 客户端
+ * Agent client for STAROps SDK
+ * STAROps SDK Agent 客户端
  */
 
 import Starops20260428Module, * as $Starops20260428 from '@alicloud/starops20260428';

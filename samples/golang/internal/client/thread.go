@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	cms "github.com/alibabacloud-go/starops-20260428/client"
+	starops "github.com/alibabacloud-go/starops-20260428/client"
 	"github.com/alibabacloud-go/tea/dara"
 )
 
@@ -73,7 +73,7 @@ func (c *AgentClient) ListThreads(ctx context.Context, pageSize int) ([]*ThreadI
 
 	// 构建请求
 	// Build request
-	req := &cms.ListThreadsRequest{}
+	req := &starops.ListThreadsRequest{}
 	req.SetMaxResults(int64(pageSize))
 
 	// 调用 API
@@ -131,7 +131,7 @@ func (c *AgentClient) GetThread(ctx context.Context, threadID string) (*ThreadIn
 
 	// 调用 API
 	// Call API
-	getThreadReq := &cms.GetThreadRequest{}
+	getThreadReq := &starops.GetThreadRequest{}
 	resp, err := c.client.GetThread(dara.String(c.config.EmployeeName), dara.String(threadID), getThreadReq)
 	if err != nil {
 		// 检查是否为会话不存在错误
@@ -182,7 +182,7 @@ func (c *AgentClient) DeleteThread(ctx context.Context, threadID string) error {
 
 	// 调用 API
 	// Call API
-	deleteThreadReq := &cms.DeleteThreadRequest{}
+	deleteThreadReq := &starops.DeleteThreadRequest{}
 	_, err := c.client.DeleteThread(dara.String(c.config.EmployeeName), dara.String(threadID), deleteThreadReq)
 	if err != nil {
 		// 检查是否为会话不存在错误
@@ -224,7 +224,7 @@ func (c *AgentClient) GetThreadData(ctx context.Context, threadID string, limit 
 
 	// 构建请求
 	// Build request
-	req := &cms.GetThreadDataRequest{}
+	req := &starops.GetThreadDataRequest{}
 	req.SetMaxResults(int64(limit))
 
 	// 调用 API
@@ -407,7 +407,7 @@ func isThreadNotFoundError(err error) bool {
 
 // extractMessageContent 从消息中提取文本内容
 // extractMessageContent extracts text content from a message
-func extractMessageContent(msg *cms.GetThreadDataResponseBodyDataMessages) string {
+func extractMessageContent(msg *starops.GetThreadDataResponseBodyDataMessages) string {
 	if msg == nil {
 		return ""
 	}

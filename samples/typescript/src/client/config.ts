@@ -1,6 +1,6 @@
 /**
- * Configuration for CMS SDK
- * CMS SDK 配置
+ * Configuration for STAROps SDK
+ * STAROps SDK 配置
  */
 
 import { config as dotenvConfig } from 'dotenv';

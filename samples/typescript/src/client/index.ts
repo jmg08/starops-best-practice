@@ -1,6 +1,6 @@
 /**
- * Client module for CMS SDK
- * CMS SDK 客户端模块
+ * Client module for STAROps SDK
+ * STAROps SDK 客户端模块
  */
 
 export * from './config.js';

@@ -3,7 +3,7 @@ package client
 import (
 	"testing"
 
-	cms "github.com/alibabacloud-go/starops-20260428/client"
+	starops "github.com/alibabacloud-go/starops-20260428/client"
 	"github.com/vibeops/samples/golang/types"
 )
 
@@ -13,7 +13,7 @@ func TestSimplePrinter_EventFieldSkip(t *testing.T) {
 
 	// 构造一个带 system 角色 artifacts 的消息，正常情况下会产出文本
 	role := string(types.MessageItemRoleSystem)
-	msg := &cms.CreateChatResponseBodyMessages{
+	msg := &starops.CreateChatResponseBodyMessages{
 		Role: &role,
 		Artifacts: []map[string]any{
 			{
@@ -23,8 +23,8 @@ func TestSimplePrinter_EventFieldSkip(t *testing.T) {
 			},
 		},
 	}
-	body := &cms.CreateChatResponseBody{
-		Messages: []*cms.CreateChatResponseBodyMessages{msg},
+	body := &starops.CreateChatResponseBody{
+		Messages: []*starops.CreateChatResponseBodyMessages{msg},
 	}
 
 	skipEvents := []string{"interaction", "thinking", "tool_call", "error"}
@@ -47,7 +47,7 @@ func TestSimplePrinter_TextEventProcessed(t *testing.T) {
 	p := NewSimplePrinter()
 
 	role := string(types.MessageItemRoleSystem)
-	msg := &cms.CreateChatResponseBodyMessages{
+	msg := &starops.CreateChatResponseBodyMessages{
 		Role: &role,
 		Artifacts: []map[string]any{
 			{
@@ -57,8 +57,8 @@ func TestSimplePrinter_TextEventProcessed(t *testing.T) {
 			},
 		},
 	}
-	body := &cms.CreateChatResponseBody{
-		Messages: []*cms.CreateChatResponseBodyMessages{msg},
+	body := &starops.CreateChatResponseBody{
+		Messages: []*starops.CreateChatResponseBodyMessages{msg},
 	}
 
 	event := &ChatEvent{
@@ -76,7 +76,7 @@ func TestSimplePrinter_TaskFinishedEventProcessed(t *testing.T) {
 	p := NewSimplePrinter()
 
 	role := string(types.MessageItemRoleSystem)
-	msg := &cms.CreateChatResponseBodyMessages{
+	msg := &starops.CreateChatResponseBodyMessages{
 		Role: &role,
 		Artifacts: []map[string]any{
 			{
@@ -86,8 +86,8 @@ func TestSimplePrinter_TaskFinishedEventProcessed(t *testing.T) {
 			},
 		},
 	}
-	body := &cms.CreateChatResponseBody{
-		Messages: []*cms.CreateChatResponseBodyMessages{msg},
+	body := &starops.CreateChatResponseBody{
+		Messages: []*starops.CreateChatResponseBodyMessages{msg},
 	}
 
 	event := &ChatEvent{
@@ -105,7 +105,7 @@ func TestSimplePrinter_EmptyEventFallthrough(t *testing.T) {
 	p := NewSimplePrinter()
 
 	role := string(types.MessageItemRoleSystem)
-	msg := &cms.CreateChatResponseBodyMessages{
+	msg := &starops.CreateChatResponseBodyMessages{
 		Role: &role,
 		Artifacts: []map[string]any{
 			{
@@ -115,8 +115,8 @@ func TestSimplePrinter_EmptyEventFallthrough(t *testing.T) {
 			},
 		},
 	}
-	body := &cms.CreateChatResponseBody{
-		Messages: []*cms.CreateChatResponseBodyMessages{msg},
+	body := &starops.CreateChatResponseBody{
+		Messages: []*starops.CreateChatResponseBodyMessages{msg},
 	}
 
 	event := &ChatEvent{

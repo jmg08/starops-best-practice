@@ -1,6 +1,6 @@
-# VibeOps CMS SDK Samples for Go
+# VibeOps STAROps SDK Samples for Go
 
-阿里云 CMS SDK Go 语言示例程序。
+阿里云 STAROps SDK Go 语言示例程序。
 
 ## 快速开始
 
@@ -17,7 +17,7 @@ go run ./cmd/chat/
 
 | 变量 | 必需 | 说明 |
 |-----|------|-----|
-| VIBEOPS_ENDPOINT | ✅ | StarOps API 端点，格式: `starops.{region-id}.aliyuncs.com` |
+| VIBEOPS_ENDPOINT | ✅ | STAROps API 端点，格式: `starops.{region-id}.aliyuncs.com` |
 | ALIBABA_CLOUD_ACCESS_KEY_ID | ✅ | Access Key ID |
 | ALIBABA_CLOUD_ACCESS_KEY_SECRET | ✅ | Access Key Secret |
 | VIBEOPS_EMPLOYEE_NAME | ❌ | 数字员工名称 (默认 default) |
@@ -36,10 +36,10 @@ go run ./cmd/chat/
 
 ```bash
 # 处理单个文件
-go run ./cmd/chat-from-file/ -file ../../requests/cms/entity.json
+go run ./cmd/chat-from-file/ -file ../../requests/starops/entity.json
 
 # 批量处理目录
-go run ./cmd/chat-from-file/ -dir ../../requests/cms/
+go run ./cmd/chat-from-file/ -dir ../../requests/starops/
 ```
 
 日志自动输出到 `output/` 目录。
@@ -62,7 +62,7 @@ go run ./cmd/thread-manager/ delete <thread-id> # 删除会话
 
 ## 请求文件
 
-`requests/cms/` 目录包含各类请求示例：
+`requests/starops/` 目录包含各类请求示例：
 
 | 文件 | 场景 |
 |-----|------|

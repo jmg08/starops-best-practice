@@ -1,6 +1,6 @@
-# VibeOps CMS SDK Samples for TypeScript
+# VibeOps STAROps SDK Samples for TypeScript
 
-Alibaba Cloud CMS SDK samples for TypeScript.
+Alibaba Cloud STAROps SDK samples for TypeScript.
 
 ## Quick Start
 
@@ -20,7 +20,7 @@ npm run chat
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| VIBEOPS_ENDPOINT | ✅ | StarOps API endpoint, format: `starops.{region-id}.aliyuncs.com` |
+| VIBEOPS_ENDPOINT | ✅ | STAROps API endpoint, format: `starops.{region-id}.aliyuncs.com` |
 | ALIBABA_CLOUD_ACCESS_KEY_ID | ✅ | Access Key ID |
 | ALIBABA_CLOUD_ACCESS_KEY_SECRET | ✅ | Access Key Secret |
 | VIBEOPS_EMPLOYEE_NAME | ❌ | Digital employee name (default: default) |
@@ -39,13 +39,13 @@ Supports multi-turn conversation with context preservation.
 
 ```bash
 # Process single file (default: shows detailed event information)
-npm run chat-from-file -- -file ../../requests/cms/entity.json
+npm run chat-from-file -- -file ../../requests/starops/entity.json
 
 # Batch process directory
-npm run chat-from-file -- -dir ../../requests/cms/
+npm run chat-from-file -- -dir ../../requests/starops/
 
 # Simple mode (text output only)
-npm run chat-from-file -- -file ../../requests/cms/entity.json -simple
+npm run chat-from-file -- -file ../../requests/starops/entity.json -simple
 ```
 
 By default uses `EventPrinter` to display detailed SSE event information (role, content, tool calls, agent calls, duration, etc.). Use `-simple` to switch to `SimplePrinter` for text-only output.
@@ -101,4 +101,4 @@ samples/typescript/
 
 - Node.js 18+
 - TypeScript 5.0+
-- Alibaba Cloud CMS SDK
+- Alibaba Cloud STAROps SDK

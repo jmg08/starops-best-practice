@@ -7,31 +7,31 @@ import (
 	"strings"
 	"testing"
 
-	cms "github.com/alibabacloud-go/starops-20260428/client"
+	starops "github.com/alibabacloud-go/starops-20260428/client"
 	"github.com/alibabacloud-go/tea/dara"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
 )
 
-// MockCMSClient 模拟 CMS 客户端接口
-// MockCMSClient is a mock implementation of the CMS client for testing
-type MockCMSClient struct {
+// MockStarOpsClient 模拟 STAROps 客户端接口
+// MockStarOpsClient is a mock implementation of the STAROps client for testing
+type MockStarOpsClient struct {
 	threads       map[string]*ThreadInfo
 	threadData    map[string][]*ThreadMessage
 	createCounter int
 }
 
-// NewMockCMSClient 创建模拟客户端
-func NewMockCMSClient() *MockCMSClient {
-	return &MockCMSClient{
+// NewMockStarOpsClient 创建模拟客户端
+func NewMockStarOpsClient() *MockStarOpsClient {
+	return &MockStarOpsClient{
 		threads:    make(map[string]*ThreadInfo),
 		threadData: make(map[string][]*ThreadMessage),
 	}
 }
 
 // CreateThread 模拟创建会话
-func (m *MockCMSClient) CreateThread(title string) (string, error) {
+func (m *MockStarOpsClient) CreateThread(title string) (string, error) {
 	m.createCounter++
 	threadID := generateMockThreadID(m.createCounter)
 	m.threads[threadID] = &ThreadInfo{
@@ -46,7 +46,7 @@ func (m *MockCMSClient) CreateThread(title string) (string, error) {
 }
 
 // ListThreads 模拟列出会话
-func (m *MockCMSClient) ListThreads(pageSize int) ([]*ThreadInfo, int64, error) {
+func (m *MockStarOpsClient) ListThreads(pageSize int) ([]*ThreadInfo, int64, error) {
 	var threads []*ThreadInfo
 	for _, t := range m.threads {
 		threads = append(threads, t)
@@ -58,7 +58,7 @@ func (m *MockCMSClient) ListThreads(pageSize int) ([]*ThreadInfo, int64, error) 
 }
 
 // GetThread 模拟获取会话详情
-func (m *MockCMSClient) GetThread(threadID string) (*ThreadInfo, error) {
+func (m *MockStarOpsClient) GetThread(threadID string) (*ThreadInfo, error) {
 	if err := validateThreadID(threadID); err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (m *MockCMSClient) GetThread(threadID string) (*ThreadInfo, error) {
 }
 
 // DeleteThread 模拟删除会话
-func (m *MockCMSClient) DeleteThread(threadID string) error {
+func (m *MockStarOpsClient) DeleteThread(threadID string) error {
 	if err := validateThreadID(threadID); err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (m *MockCMSClient) DeleteThread(threadID string) error {
 }
 
 // GetThreadData 模拟获取会话消息
-func (m *MockCMSClient) GetThreadData(threadID string, limit int) ([]*ThreadMessage, error) {
+func (m *MockStarOpsClient) GetThreadData(threadID string, limit int) ([]*ThreadMessage, error) {
 	if err := validateThreadID(threadID); err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (m *MockCMSClient) GetThreadData(threadID string, limit int) ([]*ThreadMess
 }
 
 // AddMessage 添加消息到会话
-func (m *MockCMSClient) AddMessage(threadID, role, content string) error {
+func (m *MockStarOpsClient) AddMessage(threadID, role, content string) error {
 	if _, ok := m.threads[threadID]; !ok {
 		return ErrThreadNotFound(threadID)
 	}
@@ -136,7 +136,7 @@ func TestProperty9_ThreadManagementAPIConsistency(t *testing.T) {
 	// **Validates: Requirements 5.1**
 	properties.Property("created thread appears in ListThreads", prop.ForAll(
 		func(title string) bool {
-			mock := NewMockCMSClient()
+			mock := NewMockStarOpsClient()
 
 			// Create a thread
 			threadID, err := mock.CreateThread(title)
@@ -172,7 +172,7 @@ func TestProperty9_ThreadManagementAPIConsistency(t *testing.T) {
 	// **Validates: Requirements 5.2**
 	properties.Property("GetThread returns correct thread details", prop.ForAll(
 		func(title string) bool {
-			mock := NewMockCMSClient()
+			mock := NewMockStarOpsClient()
 
 			// Create a thread
 			threadID, err := mock.CreateThread(title)
@@ -205,7 +205,7 @@ func TestProperty9_ThreadManagementAPIConsistency(t *testing.T) {
 				messageCount = 10
 			}
 
-			mock := NewMockCMSClient()
+			mock := NewMockStarOpsClient()
 
 			// Create a thread
 			threadID, err := mock.CreateThread(title)
@@ -240,7 +240,7 @@ func TestProperty9_ThreadManagementAPIConsistency(t *testing.T) {
 	// **Validates: Requirements 5.3**
 	properties.Property("after DeleteThread, GetThread returns error", prop.ForAll(
 		func(title string) bool {
-			mock := NewMockCMSClient()
+			mock := NewMockStarOpsClient()
 
 			// Create a thread
 			threadID, err := mock.CreateThread(title)
@@ -280,7 +280,7 @@ func TestProperty9_ThreadManagementAPIConsistency(t *testing.T) {
 	// **Validates: Requirements 5.1, 5.2, 5.3, 5.4**
 	properties.Property("full thread lifecycle is consistent", prop.ForAll(
 		func(title string) bool {
-			mock := NewMockCMSClient()
+			mock := NewMockStarOpsClient()
 
 			// 1. Create thread
 			threadID, err := mock.CreateThread(title)
@@ -354,7 +354,7 @@ func TestProperty10_InvalidThreadIDError(t *testing.T) {
 	// **Validates: Requirements 5.5**
 	properties.Property("empty thread ID returns descriptive error", prop.ForAll(
 		func(_ bool) bool {
-			mock := NewMockCMSClient()
+			mock := NewMockStarOpsClient()
 			emptyID := ""
 
 			// GetThread with empty ID
@@ -392,7 +392,7 @@ func TestProperty10_InvalidThreadIDError(t *testing.T) {
 				return true
 			}
 
-			mock := NewMockCMSClient()
+			mock := NewMockStarOpsClient()
 
 			// GetThread with non-existent ID
 			_, err := mock.GetThread(nonExistentID)
@@ -432,7 +432,7 @@ func TestProperty10_InvalidThreadIDError(t *testing.T) {
 	// **Validates: Requirements 5.5**
 	properties.Property("malformed thread ID with whitespace returns error", prop.ForAll(
 		func(prefix string, suffix string) bool {
-			mock := NewMockCMSClient()
+			mock := NewMockStarOpsClient()
 
 			// Create malformed IDs with various whitespace
 			malformedIDs := []string{
@@ -482,7 +482,7 @@ func TestProperty10_InvalidThreadIDError(t *testing.T) {
 				return true
 			}
 
-			mock := NewMockCMSClient()
+			mock := NewMockStarOpsClient()
 
 			// Test GetThread
 			_, err := mock.GetThread(invalidID)
@@ -676,7 +676,7 @@ func TestIsThreadNotFoundError(t *testing.T) {
 func TestExtractMessageContent(t *testing.T) {
 	tests := []struct {
 		name     string
-		msg      *cms.GetThreadDataResponseBodyDataMessages
+		msg      *starops.GetThreadDataResponseBodyDataMessages
 		expected string
 	}{
 		{
@@ -686,7 +686,7 @@ func TestExtractMessageContent(t *testing.T) {
 		},
 		{
 			name: "message with text type content",
-			msg: &cms.GetThreadDataResponseBodyDataMessages{
+			msg: &starops.GetThreadDataResponseBodyDataMessages{
 				Contents: []map[string]any{
 					{"type": "text", "value": "Hello, world!"},
 				},
@@ -695,7 +695,7 @@ func TestExtractMessageContent(t *testing.T) {
 		},
 		{
 			name: "message with multiple text contents",
-			msg: &cms.GetThreadDataResponseBodyDataMessages{
+			msg: &starops.GetThreadDataResponseBodyDataMessages{
 				Contents: []map[string]any{
 					{"type": "text", "value": "First"},
 					{"type": "text", "value": "Second"},
@@ -705,7 +705,7 @@ func TestExtractMessageContent(t *testing.T) {
 		},
 		{
 			name: "message with value only (no type)",
-			msg: &cms.GetThreadDataResponseBodyDataMessages{
+			msg: &starops.GetThreadDataResponseBodyDataMessages{
 				Contents: []map[string]any{
 					{"value": "Direct value"},
 				},
@@ -714,7 +714,7 @@ func TestExtractMessageContent(t *testing.T) {
 		},
 		{
 			name: "message with text field (no type)",
-			msg: &cms.GetThreadDataResponseBodyDataMessages{
+			msg: &starops.GetThreadDataResponseBodyDataMessages{
 				Contents: []map[string]any{
 					{"text": "Text field value"},
 				},
@@ -723,14 +723,14 @@ func TestExtractMessageContent(t *testing.T) {
 		},
 		{
 			name: "message with Detail fallback",
-			msg: &cms.GetThreadDataResponseBodyDataMessages{
+			msg: &starops.GetThreadDataResponseBodyDataMessages{
 				Detail: dara.String("Detail content"),
 			},
 			expected: "Detail content",
 		},
 		{
 			name: "empty contents with Detail",
-			msg: &cms.GetThreadDataResponseBodyDataMessages{
+			msg: &starops.GetThreadDataResponseBodyDataMessages{
 				Contents: []map[string]any{},
 				Detail:   dara.String("Fallback detail"),
 			},
@@ -738,7 +738,7 @@ func TestExtractMessageContent(t *testing.T) {
 		},
 		{
 			name: "nil content in array",
-			msg: &cms.GetThreadDataResponseBodyDataMessages{
+			msg: &starops.GetThreadDataResponseBodyDataMessages{
 				Contents: []map[string]any{
 					nil,
 					{"type": "text", "value": "Valid content"},
@@ -806,7 +806,7 @@ func TestThreadMessageStructure(t *testing.T) {
 // TestMockClientIntegration 测试模拟客户端集成
 func TestMockClientIntegration(t *testing.T) {
 	t.Run("create and list threads", func(t *testing.T) {
-		mock := NewMockCMSClient()
+		mock := NewMockStarOpsClient()
 
 		// Create multiple threads
 		ids := make([]string, 3)
@@ -833,7 +833,7 @@ func TestMockClientIntegration(t *testing.T) {
 	})
 
 	t.Run("add and retrieve messages", func(t *testing.T) {
-		mock := NewMockCMSClient()
+		mock := NewMockStarOpsClient()
 
 		// Create thread
 		threadID, err := mock.CreateThread("Chat Thread")
@@ -879,7 +879,7 @@ func TestMockClientIntegration(t *testing.T) {
 	})
 
 	t.Run("delete thread removes all data", func(t *testing.T) {
-		mock := NewMockCMSClient()
+		mock := NewMockStarOpsClient()
 
 		// Create thread and add messages
 		threadID, _ := mock.CreateThread("To Delete")

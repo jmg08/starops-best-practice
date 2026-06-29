@@ -1,6 +1,6 @@
 /**
- * Event and message types for CMS SDK
- * CMS SDK 事件和消息类型
+ * Event and message types for STAROps SDK
+ * STAROps SDK 事件和消息类型
  */
 
 import { ContentType, EventType, ItemStatus, MessageRole } from './enums.js';

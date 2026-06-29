@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	cms "github.com/alibabacloud-go/starops-20260428/client"
+	starops "github.com/alibabacloud-go/starops-20260428/client"
 	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
 	"github.com/alibabacloud-go/tea/dara"
 )
@@ -71,7 +71,7 @@ func LoadConfigFromEnv() (*Config, error) {
 
 // AgentClient Agent客户端
 type AgentClient struct {
-	client *cms.Client
+	client *starops.Client
 	config *Config
 }
 
@@ -83,13 +83,13 @@ func NewAgentClient(cfg *Config) (*AgentClient, error) {
 	openApiConfig.SetEndpoint(cfg.Endpoint)
 	openApiConfig.SetSignatureVersion("v3")
 
-	cmsClient, err := cms.NewClient(openApiConfig)
+	staropsClient, err := starops.NewClient(openApiConfig)
 	if err != nil {
 		return nil, fmt.Errorf("创建StarOps客户端失败: %w", err)
 	}
 
 	return &AgentClient{
-		client: cmsClient,
+		client: staropsClient,
 		config: cfg,
 	}, nil
 }
@@ -101,10 +101,10 @@ func (c *AgentClient) Config() *Config {
 
 // CreateThread 创建会话
 func (c *AgentClient) CreateThread(ctx context.Context, attributes ...map[string]string) (string, error) {
-	req := &cms.CreateThreadRequest{}
+	req := &starops.CreateThreadRequest{}
 	req.SetTitle(fmt.Sprintf("Chat-%d", time.Now().Unix()))
 
-	variables := &cms.CreateThreadRequestVariables{}
+	variables := &starops.CreateThreadRequestVariables{}
 	variables.SetWorkspace(c.config.Workspace)
 	req.SetVariables(variables)
 
@@ -130,7 +130,7 @@ func (c *AgentClient) CreateThread(ctx context.Context, attributes ...map[string
 
 // ChatEvent 聊天事件
 type ChatEvent struct {
-	Body       *cms.CreateChatResponseBody
+	Body       *starops.CreateChatResponseBody
 	RawJSON    string
 	StatusCode int32
 	IsDone     bool
@@ -175,8 +175,8 @@ func (c *AgentClient) ensureDefaultVariables(variables map[string]any) {
 
 // streamSSE 启动 SSE 流并将响应写入事件通道
 // ponytail: 提取公共 SSE 循环，ChatWithVariables 和 Interact 共用
-func (c *AgentClient) streamSSE(ctx context.Context, req *cms.CreateChatRequest, events chan *ChatEvent) {
-	yield := make(chan *cms.CreateChatResponse, 10)
+func (c *AgentClient) streamSSE(ctx context.Context, req *starops.CreateChatRequest, events chan *ChatEvent) {
+	yield := make(chan *starops.CreateChatResponse, 10)
 	yieldErr := make(chan error, 1)
 	runtime := &dara.RuntimeOptions{}
 	runtime.SetConnectTimeout(30000)
@@ -238,24 +238,24 @@ func (c *AgentClient) ChatWithVariables(ctx context.Context, threadID, message s
 	go func() {
 		defer close(events)
 
-		content := &cms.CreateChatRequestMessagesContents{}
+		content := &starops.CreateChatRequestMessagesContents{}
 		content.SetType("text")
 		content.SetValue(message)
 
-		msg := &cms.CreateChatRequestMessages{}
+		msg := &starops.CreateChatRequestMessages{}
 		msg.SetRole("user")
-		msg.SetContents([]*cms.CreateChatRequestMessagesContents{content})
+		msg.SetContents([]*starops.CreateChatRequestMessagesContents{content})
 
 		if variables == nil {
 			variables = make(map[string]any)
 		}
 		c.ensureDefaultVariables(variables)
 
-		req := &cms.CreateChatRequest{}
+		req := &starops.CreateChatRequest{}
 		req.SetAction("create")
 		req.SetThreadId(threadID)
 		req.SetDigitalEmployeeName(c.config.EmployeeName)
-		req.SetMessages([]*cms.CreateChatRequestMessages{msg})
+		req.SetMessages([]*starops.CreateChatRequestMessages{msg})
 		req.SetVariables(variables)
 
 		c.streamSSE(ctx, req, events)
@@ -279,7 +279,7 @@ func (c *AgentClient) Interact(ctx context.Context, threadID string, userInterac
 		variables["userInteractive"] = userInteractive
 		c.ensureDefaultVariables(variables)
 
-		req := &cms.CreateChatRequest{}
+		req := &starops.CreateChatRequest{}
 		req.SetAction("interact")
 		req.SetThreadId(threadID)
 		req.SetDigitalEmployeeName(c.config.EmployeeName)
@@ -410,7 +410,7 @@ func IsTimeout(err error) bool {
 	return ok
 }
 
-func isDoneMessage(resp *cms.CreateChatResponse) bool {
+func isDoneMessage(resp *starops.CreateChatResponse) bool {
 	if resp == nil {
 		return false
 	}

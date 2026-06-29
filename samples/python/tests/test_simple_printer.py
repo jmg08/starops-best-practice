@@ -218,7 +218,7 @@ import os
 # 直接加载 simple_printer 模块，绕过包 __init__.py 中对 SDK 的依赖
 _sp_path = os.path.join(
     os.path.dirname(__file__), os.pardir,
-    "cms_sdk_samples", "client", "simple_printer.py",
+    "starops_sdk_samples", "client", "simple_printer.py",
 )
 _spec = importlib.util.spec_from_file_location("simple_printer", _sp_path)
 _mod = importlib.util.module_from_spec(_spec)

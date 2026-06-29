@@ -3,8 +3,8 @@
 //
 // 用法 / Usage:
 //
-//	go run ./cmd/chat-from-file/ -file ../../requests/cms/entity.json
-//	go run ./cmd/chat-from-file/ -dir ../../requests/cms/              # 处理目录下所有文件
+//	go run ./cmd/chat-from-file/ -file ../../requests/starops/entity.json
+//	go run ./cmd/chat-from-file/ -dir ../../requests/starops/              # 处理目录下所有文件
 //	go run ./cmd/chat-from-file/ -file entity.json -simple             # 简洁模式
 //
 // 功能 / Features:
@@ -335,8 +335,8 @@ func printUsage() {
 	fmt.Println("  go run ./cmd/chat-from-file/ -dir <path>    处理目录下所有 JSON 文件")
 	fmt.Println()
 	fmt.Println("示例:")
-	fmt.Println("  go run ./cmd/chat-from-file/ -file ../../requests/cms/entity.json")
-	fmt.Println("  go run ./cmd/chat-from-file/ -dir ../../requests/cms/")
+	fmt.Println("  go run ./cmd/chat-from-file/ -file ../../requests/starops/entity.json")
+	fmt.Println("  go run ./cmd/chat-from-file/ -dir ../../requests/starops/")
 	fmt.Println("  go run ./cmd/chat-from-file/ -file entity.json -simple")
 	fmt.Println()
 	fmt.Println("选项:")

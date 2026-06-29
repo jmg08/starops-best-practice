@@ -1,6 +1,6 @@
 /**
- * CMS SDK Samples for TypeScript
- * 阿里云 CMS SDK TypeScript 示例
+ * STAROps SDK Samples for TypeScript
+ * 阿里云 STAROps SDK TypeScript 示例
  */
 
 export * from './types/index.js';
