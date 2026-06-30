@@ -161,7 +161,7 @@ go run ./cmd/chat-from-file/ -file /tmp/my_request.json
 
 | 变量 | 必需 | 说明 |
 |------|------|------|
-| `VIBEOPS_ENDPOINT` | ✅ | STAROps API 端点，格式: `cms.{region-id}.aliyuncs.com` |
+| `VIBEOPS_ENDPOINT` | ✅ | STAROps API 端点，格式: `starops.cn-beijing.aliyuncs.com` |
 | `VIBEOPS_REGION` | ❌ | 地域，默认 `cn-hangzhou` |
 | `ALIBABA_CLOUD_ACCESS_KEY_ID` | ✅ | Access Key ID |
 | `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | ✅ | Access Key Secret |

@@ -163,7 +163,7 @@ All language samples use the same environment variables (via `.env` file):
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `VIBEOPS_ENDPOINT` | ✅ | STAROps API endpoint, format: `cms.{region-id}.aliyuncs.com` |
+| `VIBEOPS_ENDPOINT` | ✅ | STAROps API endpoint, format: `starops.cn-beijing.aliyuncs.com` |
 | `VIBEOPS_REGION` | ❌ | Region, default `cn-hangzhou` |
 | `ALIBABA_CLOUD_ACCESS_KEY_ID` | ✅ | Access Key ID |
 | `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | ✅ | Access Key Secret |
