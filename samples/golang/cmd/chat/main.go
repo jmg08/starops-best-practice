@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -18,6 +19,10 @@ import (
 )
 
 func main() {
+	var simulateError bool
+	flag.BoolVar(&simulateError, "simulate-error", false, "模拟网络断连，测试重试逻辑")
+	flag.Parse()
+
 	fmt.Println("🚀 VibeOps Chat")
 	fmt.Println(strings.Repeat("=", 60))
 
@@ -32,6 +37,11 @@ func main() {
 	}
 
 	fmt.Printf("📋 Employee: %s\n\n", cfg.EmployeeName)
+
+	if simulateError {
+		cfg.SimulateNetworkError = true
+		fmt.Println("⚠️  已启用网络断连模拟，将在收到首个事件后触发重试")
+	}
 
 	// 创建客户端
 	agentClient, err := client.NewAgentClient(cfg)

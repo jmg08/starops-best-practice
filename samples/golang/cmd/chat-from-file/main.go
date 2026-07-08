@@ -55,9 +55,11 @@ var (
 	dirPath    = flag.String("dir", "", "请求文件目录，处理目录下所有 JSON 文件")
 	simpleMode = flag.Bool("simple", false, "简洁模式，只输出最终文本")
 	outputDir  = flag.String("output", "../../requests/output", "输出目录")
+	simulateError = flag.Bool("simulate-error", false, "模拟网络断连，测试重试逻辑")
 )
 
 func main() {
+		
 	flag.Parse()
 
 	if *filePath == "" && *dirPath == "" {
@@ -73,6 +75,10 @@ func main() {
 	if err != nil {
 		fmt.Printf("❌ 配置加载失败: %v\n", err)
 		os.Exit(1)
+	}
+	if *simulateError {
+		cfg.SimulateNetworkError = true
+		fmt.Println("⚠️  已启用网络断连模拟，将在收到首个事件后触发重试")
 	}
 
 	// 创建客户端

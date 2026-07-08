@@ -3,7 +3,6 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -25,25 +24,36 @@ type ChatOptions struct {
 
 // Config 应用配置
 type Config struct {
-	Workspace       string
-	Endpoint        string
-	Region          string
-	AccessKeyID     string
-	AccessKeySecret string
-	EmployeeName    string
+	Workspace            string
+	Endpoint             string
+	Region               string
+	AccessKeyID          string
+	AccessKeySecret      string
+	EmployeeName         string
+	RetryConfig          *RetryConfig // 重试配置，nil 时使用默认配置，默认启用重试
+	SimulateNetworkError bool         // 模拟网络断连，用于测试重试逻辑
 }
 
 // LoadConfigFromEnv 从环境变量加载配置
+// AK/SK 通过阿里云默认凭据链获取（凭据链已包含环境变量、配置文件、RAM 角色等来源）
 func LoadConfigFromEnv() (*Config, error) {
+	// 直接通过阿里云默认凭据链获取 AK/SK
+	// 默认凭据链已包含环境变量、配置文件、RAM 角色等来源，无需单独读取环境变量
+	akID, akSecret, err := LoadCredentialsFromChain()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARN: 默认凭据链获取凭证失败: %v\n", err)
+	}
+
 	cfg := &Config{
 		Workspace:       os.Getenv("VIBEOPS_WORKSPACE"),
 		Endpoint:        os.Getenv("VIBEOPS_ENDPOINT"),
 		Region:          os.Getenv("VIBEOPS_REGION"),
-		AccessKeyID:     os.Getenv("ALIBABA_CLOUD_ACCESS_KEY_ID"),
-		AccessKeySecret: os.Getenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET"),
+		AccessKeyID:     akID,
+		AccessKeySecret: akSecret,
 		EmployeeName:    os.Getenv("VIBEOPS_EMPLOYEE_NAME"),
 	}
 
+	// 验证必需字段
 	var missingVars []string
 	if cfg.Endpoint == "" {
 		missingVars = append(missingVars, "VIBEOPS_ENDPOINT")
@@ -56,7 +66,7 @@ func LoadConfigFromEnv() (*Config, error) {
 	}
 
 	if len(missingVars) > 0 {
-		return nil, fmt.Errorf("缺少必需的环境变量: %s", strings.Join(missingVars, ", "))
+		return nil, fmt.Errorf("缺少必需的配置: %s", strings.Join(missingVars, ", "))
 	}
 
 	if cfg.EmployeeName == "" {
@@ -65,6 +75,8 @@ func LoadConfigFromEnv() (*Config, error) {
 	if cfg.Region == "" {
 		cfg.Region = "cn-hangzhou"
 	}
+
+	cfg.RetryConfig = LoadRetryConfigFromEnv()
 
 	return cfg, nil
 }
@@ -170,64 +182,6 @@ func (c *AgentClient) ensureDefaultVariables(variables map[string]any) {
 	}
 	if _, ok := variables["timeStamp"]; !ok {
 		variables["timeStamp"] = fmt.Sprintf("%d", time.Now().Unix())
-	}
-}
-
-// streamSSE 启动 SSE 流并将响应写入事件通道
-// ponytail: 提取公共 SSE 循环，ChatWithVariables 和 Interact 共用
-func (c *AgentClient) streamSSE(ctx context.Context, req *starops.CreateChatRequest, events chan *ChatEvent) {
-	yield := make(chan *starops.CreateChatResponse, 10)
-	yieldErr := make(chan error, 1)
-	runtime := &dara.RuntimeOptions{}
-	runtime.SetConnectTimeout(30000)
-	runtime.SetReadTimeout(300000)
-
-	go c.client.CreateChatWithSSECtx(ctx, req, nil, runtime, yield, yieldErr)
-
-	for {
-		select {
-		case resp, ok := <-yield:
-			if !ok {
-				events <- &ChatEvent{IsDone: true}
-				return
-			}
-
-			rawJSON := ""
-			if resp.Body != nil {
-				jsonBytes, err := json.Marshal(resp.Body)
-				if err == nil {
-					rawJSON = string(jsonBytes)
-				}
-			}
-
-			event := &ChatEvent{
-				Body:       resp.Body,
-				RawJSON:    rawJSON,
-				StatusCode: dara.Int32Value(resp.StatusCode),
-				Id:         dara.StringValue(resp.Id),
-				Event:      dara.StringValue(resp.Event),
-			}
-
-			if isDoneMessage(resp) {
-				event.IsDone = true
-			}
-
-			events <- event
-
-			if event.IsDone {
-				return
-			}
-
-		case err := <-yieldErr:
-			if err != nil {
-				events <- &ChatEvent{Error: err}
-			}
-			return
-
-		case <-ctx.Done():
-			events <- &ChatEvent{Error: ctx.Err()}
-			return
-		}
 	}
 }
 

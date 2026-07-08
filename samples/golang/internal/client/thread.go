@@ -430,11 +430,22 @@ func extractMessageContent(msg *starops.GetThreadDataResponseBodyDataMessages) s
 					}
 				}
 			}
+		} else {
+			// 兜底：无 type 字段时，尝试 value 或 text 字段
+			if valueVal, ok := content["value"]; ok {
+				if valueStr, ok := valueVal.(string); ok && valueStr != "" {
+					contentParts = append(contentParts, valueStr)
+				}
+			} else if textVal, ok := content["text"]; ok {
+				if textStr, ok := textVal.(string); ok && textStr != "" {
+					contentParts = append(contentParts, textStr)
+				}
+			}
 		}
 	}
 
 	if len(contentParts) > 0 {
-		return strings.Join(contentParts, "")
+		return strings.Join(contentParts, "\n")
 	}
 
 	// 2. 尝试从 Artifacts 字段提取文本（最终结果）

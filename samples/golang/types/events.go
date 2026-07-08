@@ -38,6 +38,7 @@ const (
 	EventTypeInteractiveResponse EventType = "interactive_response" // 交互响应事件
 	EventTypeTaskFinished        EventType = "task_finished"        // 任务完成事件。注意：只有整体任务完成，才会发送，由主调度引擎产生
 	EventTypeCancel              EventType = "cancel"
+	EventTypeStreamDone          EventType = "stream_done"          // SSE 流正常结束标志
 )
 
 // 执行状态 (Status) - 表示执行过程的阶段

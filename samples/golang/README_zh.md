@@ -7,6 +7,8 @@
 - [目录结构](#目录结构)
 - [快速开始](#快速开始)
 - [环境变量](#环境变量)
+- [凭证管理](#凭证管理)
+- [重试配置](#重试配置)
 - [示例程序](#示例程序)
   - [交互式对话 (chat)](#1-交互式对话-cmdchat)
   - [简洁输出模式 (chat-simple)](#2-简洁输出模式-cmdchat-simple)
@@ -78,6 +80,7 @@ samples/golang/
    ```bash
    export VIBEOPS_ENDPOINT="starops.cn-hongkong.aliyuncs.com"
    export VIBEOPS_REGION="cn-hongkong"
+   # 以下 AK/SK 可选，如未设置则自动使用阿里云默认凭据链
    export ALIBABA_CLOUD_ACCESS_KEY_ID="your-access-key-id"
    export ALIBABA_CLOUD_ACCESS_KEY_SECRET="your-access-key-secret"
    export VIBEOPS_EMPLOYEE_NAME="default"  # 可选
@@ -93,11 +96,71 @@ samples/golang/
 | 变量名 | 必需 | 描述 | 示例 |
 |--------|------|------|------|
 | `VIBEOPS_ENDPOINT` | ✅ | STAROps API 端点，格式: `starops.{region-id}.aliyuncs.com` | `starops.cn-hongkong.aliyuncs.com` |
-| `ALIBABA_CLOUD_ACCESS_KEY_ID` | ✅ | 阿里云 Access Key ID | |
-| `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | ✅ | 阿里云 Access Key Secret | |
+| `ALIBABA_CLOUD_ACCESS_KEY_ID` | ❌* | 阿里云 Access Key ID（如使用默认凭据链则可选） | |
+| `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | ❌* | 阿里云 Access Key Secret（如使用默认凭据链则可选） | |
 | `VIBEOPS_REGION` | ❌ | 地域（需与端点匹配） | `cn-hongkong` |
 | `VIBEOPS_EMPLOYEE_NAME` | ❌ | 数字员工名称（默认：`default`） | `apsara-ops` |
+| `VIBEOPS_MAX_RETRIES` | ❌ | SSE 连接最大重试次数（默认：10） | `10` |
 | `LOG_LEVEL` | ❌ | 日志级别：debug, info, warn, error | `info` |
+
+> *当环境变量 AK/SK 未设置时，SDK 会自动使用阿里云默认凭据链。
+
+## 凭证管理
+
+SDK 支持两种凭证获取方式：
+
+### 1. 环境变量（优先级最高）
+
+直接设置 `ALIBABA_CLOUD_ACCESS_KEY_ID` 和 `ALIBABA_CLOUD_ACCESS_KEY_SECRET` 环境变量：
+
+```bash
+export ALIBABA_CLOUD_ACCESS_KEY_ID="your-access-key-id"
+export ALIBABA_CLOUD_ACCESS_KEY_SECRET="your-access-key-secret"
+```
+
+### 2. 阿里云默认凭据链（自动 fallback）
+
+当环境变量 AK/SK 未设置时，`LoadConfigFromEnv()` 会自动 fallback 到阿里云默认凭据链（通过 `credentials-go` SDK）。
+
+**凭据链优先级：**
+1. 环境变量（`ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET`）
+2. 配置文件（`~/.alibabacloud/credentials`）
+3. ECS RAM 角色
+4. OIDC Role SSO
+5. IMDSv2
+
+> **推荐：** 生产环境建议使用默认凭据链，避免硬编码密钥。
+
+## 重试配置
+
+SDK 内置了 SSE 连接断线自动重连能力，用于应对网络中断场景。
+
+**配置项：**
+- 环境变量 `VIBEOPS_MAX_RETRIES`：最大重试次数（默认：10）
+
+**重试策略：**
+- 指数退避：1s, 2s, 4s, 8s, ... 最大 30s
+- 重连时使用 `action="reconnect"` 恢复会话
+- 通过 timestamp 去重，避免处理重复事件
+
+**正常结束标志：**
+- 收到 `stream_done` 事件表示对话正常完成
+- 如果连接在 `stream_done` 之前断开，SDK 会自动尝试重连
+
+### 测试重试逻辑
+
+使用 `-simulate-error` flag 模拟网络断连，验证重连机制：
+
+```bash
+go run ./cmd/chat/ -simulate-error
+```
+
+启用后行为：
+1. 正常创建会话并发送消息
+2. 接收到首个 SSE 事件后，主动模拟网络断连
+3. 客户端输出重试日志并执行指数退避
+4. 自动重连后通过 timestamp 去重，继续接收后续事件
+5. 最终完整接收所有消息至 stream_done
 
 ## 示例程序
 
@@ -280,7 +343,7 @@ type Config struct {
 func LoadConfigFromEnv() (*Config, error)
 ```
 
-从环境变量加载配置。如果缺少必需变量，返回错误。
+从环境变量加载配置。当 AK/SK 环境变量未设置时，自动 fallback 到阿里云默认凭据链。
 
 #### AgentClient（Agent 客户端）
 
@@ -854,6 +917,7 @@ variables := map[string]interface{}{
 - `github.com/alibabacloud-go/starops-20260428` - 阿里云 STAROps SDK
 - `github.com/alibabacloud-go/darabonba-openapi/v2` - OpenAPI 客户端
 - `github.com/alibabacloud-go/tea` - Tea 运行时
+- `github.com/aliyun/credentials-go` - 阿里云凭据链 SDK（用于默认凭据链支持）
 
 ## 许可证
 
