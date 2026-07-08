@@ -122,7 +122,7 @@ func (c *AgentClient) streamOnce(ctx context.Context, req *starops.CreateChatReq
 			// 重置空闲定时器：Stop 后 drain 掉可能已触发的信号，再 Reset
 			if !idleTimer.Stop() {
 				select {
-				case <-idleTimer.C:
+				case <-idleTimer.C:  // 如果已被触发，消费掉触发的事件
 				default:
 				}
 			}
@@ -300,7 +300,6 @@ func isNewerTimestamp(ts, base string) bool {
 	return ts > base
 }
 
-var testFile, file_err = os.OpenFile("/tmp/test_file.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 
 // extractNewestTimestamp 从事件中提取比 base 更新的最大消息 timestamp
 // 返回空字符串表示没有比 base 更新的时间戳
@@ -308,11 +307,7 @@ func extractNewestTimestamp(event *ChatEvent, base string) string {
 	if event == nil || event.Body == nil || event.Body.Messages == nil {
 		return ""
 	}
-	if file_err != nil {
-		fmt.Println(file_err.Error())
-	}
-
-	fmt.Fprintln(testFile, event.Body.Messages)
+	
 	newest := base
 	for _, msg := range event.Body.Messages {
 		if msg == nil {
