@@ -1,104 +1,134 @@
-# VibeOps STAROps SDK Samples for TypeScript
+# StarOps SDK Samples for TypeScript 🟦
 
-Alibaba Cloud STAROps SDK samples for TypeScript.
+TypeScript client samples for Alibaba Cloud StarOps digital employees, featuring resilient SSE streaming
+with automatic reconnection, exponential backoff, and message deduplication.
+
+## Requirements
+
+- **Node.js 18+**
+- **TypeScript 5.0+**
+- An Alibaba Cloud account with StarOps access and valid credentials
+
+## Installation
+
+```bash
+cd samples/typescript
+npm install
+cp .env.example .env   # edit .env with your credentials and endpoint
+```
 
 ## Quick Start
 
 ```bash
-# 1. Configure environment variables
-cp .env.example .env
-# Edit .env with your configuration
-
-# 2. Install dependencies
-npm install
-
-# 3. Run
 npm run chat
 ```
 
-## Environment Variables
+## Build
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| VIBEOPS_ENDPOINT | ✅ | STAROps API endpoint, format: `starops.{region-id}.aliyuncs.com` |
-| ALIBABA_CLOUD_ACCESS_KEY_ID | ✅ | Access Key ID |
-| ALIBABA_CLOUD_ACCESS_KEY_SECRET | ✅ | Access Key Secret |
-| VIBEOPS_EMPLOYEE_NAME | ❌ | Digital employee name (default: default) |
+```bash
+npm run build   # compile to ./dist
+npm test        # run the test suite (vitest)
+```
 
-## Sample Programs
+## Running the Samples
 
-### chat - Interactive Chat
+### chat — interactive chat
 
 ```bash
 npm run chat
 ```
 
-Supports multi-turn conversation with context preservation.
+Multi-turn interactive chat with context preserved within a thread.
 
-### chat-from-file - Load Requests from File
+### chat-from-file — run requests from JSON
 
 ```bash
-# Process single file (default: shows detailed event information)
+# Single request (detailed event output by default)
 npm run chat-from-file -- -file ../../requests/starops/entity.json
 
-# Batch process directory
+# Batch-process a directory
 npm run chat-from-file -- -dir ../../requests/starops/
 
-# Simple mode (text output only)
+# Simple mode: text-only output
 npm run chat-from-file -- -file ../../requests/starops/entity.json -simple
 ```
 
-By default uses `EventPrinter` to display detailed SSE event information (role, content, tool calls, agent calls, duration, etc.). Use `-simple` to switch to `SimplePrinter` for text-only output.
+By default the detailed `EventPrinter` shows role, content, tool calls, agent calls, and durations.
+Use `-simple` to switch to text-only output.
 
-### chat-interactive - Interactive Event Handling
+> [!NOTE]
+> With `npm run`, pass a `--` separator before the flags so npm forwards them to the script.
 
-```bash
-npm run chat-interactive
-```
-
-Handles confirmation, selection, and input events from the Agent.
-
-### thread-manager - Thread Management
+### thread-manager — manage threads
 
 ```bash
-# List threads
-npm run thread-manager -- list
-
-# Get thread details
-npm run thread-manager -- get <thread-id>
-
-# Delete thread
-npm run thread-manager -- delete <thread-id>
+npm run thread-manager -- list                # list threads
+npm run thread-manager -- get <thread-id>     # thread details
+npm run thread-manager -- delete <thread-id>  # delete a thread
 ```
 
-## Testing
+## SSE Retry & Reconnection
+
+The client streams responses over SSE and recovers transparently from interruptions.
+
+```
+create ──► stream events ──► stream_done ✅ (normal completion)
+              │
+              ├─ connection dropped ─┐
+              ├─ idle timeout ───────┤──► backoff ──► reconnect (action="reconnect") ──► dedupe ──► resume
+              └─ SSE error ──────────┘
+```
+
+- **Normal completion** is marked by a `stream_done` event; a stream ending before it triggers a reconnect.
+- **Exponential backoff**: `1s, 2s, 4s, 8s, 16s, 30s` (capped at 30s), up to `VIBEOPS_MAX_RETRIES` attempts.
+- **Reconnect** sends `action="reconnect"` to resume the session.
+- **Deduplication**: after reconnecting, messages are filtered by timestamp so none are delivered twice.
+
+> [!NOTE]
+> After exceeding the maximum retries, the client throws an error instead of hanging.
+
+### Testing the retry logic
 
 ```bash
-npm test
+npx tsx src/examples/chat.ts -simulate-error
+npm run chat-from-file -- -file ../../requests/starops/entity.json -simulate-error
 ```
 
-## Building
+With `-simulate-error`, the client simulates a network disconnection, backs off, reconnects,
+deduplicates by timestamp, and finishes at `stream_done`.
 
-```bash
-npm run build
-```
+## Environment Variables
 
-## Directory Structure
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `VIBEOPS_ENDPOINT` | ✅ | — | StarOps API endpoint, e.g. `starops.cn-beijing.aliyuncs.com` |
+| `VIBEOPS_WORKSPACE` | ✅ | — | Workspace ID |
+| `ALIBABA_CLOUD_ACCESS_KEY_ID` | ✅ | — | Access Key ID |
+| `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | ✅ | — | Access Key Secret |
+| `VIBEOPS_REGION` | ❌ | `cn-hangzhou` | Region (should match the endpoint) |
+| `VIBEOPS_EMPLOYEE_NAME` | ❌ | `default` | Digital employee name |
+| `VIBEOPS_MAX_RETRIES` | ❌ | `10` | Max SSE reconnect attempts |
+| `VIBEOPS_IDLE_TIMEOUT` | ❌ | `60` | Idle timeout (seconds); reconnect if no message arrives within this window |
+
+## Command-Line Flags
+
+| Flag | Applies to | Description |
+|------|-----------|-------------|
+| `-simulate-error` | `chat`, `chat-from-file` | Simulate a network disconnection to exercise retries |
+| `-file <path>` | `chat-from-file` | Load a single request from a JSON file |
+| `-dir <path>` | `chat-from-file` | Batch-process every JSON request in a directory |
+| `-simple` | `chat-from-file` | Text-only output |
+
+## Project Structure
 
 ```
 samples/typescript/
 ├── src/
-│   ├── client/        # Client implementation
+│   ├── client/        # Core client: chat, threads, retry, printers
 │   ├── types/         # Type definitions
-│   └── examples/      # Sample programs
-├── tests/             # Test code
-├── package.json       # npm configuration
-├── tsconfig.json      # TypeScript configuration
+│   └── examples/      # chat, chat-from-file, thread-manager
+├── tests/             # Test suite (vitest)
+├── package.json
+├── tsconfig.json
 └── README.md
 ```
-
-## Requirements
-
-- Node.js 18+
-- TypeScript 5.0+
-- Alibaba Cloud STAROps SDK

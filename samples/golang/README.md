@@ -1,145 +1,156 @@
-# VibeOps STAROps SDK Samples for Go
+# StarOps SDK Samples for Go 🐹
 
-阿里云 STAROps SDK Go 语言示例程序。
+Go client samples for Alibaba Cloud StarOps digital employees, featuring resilient SSE streaming with
+automatic reconnection, exponential backoff, and message deduplication.
 
-## 快速开始
+## Requirements
+
+- **Go 1.21+**
+- An Alibaba Cloud account with StarOps access and valid credentials
+
+## Quick Start
 
 ```bash
-# 1. 配置环境变量
-cp .env.example .env
-# 编辑 .env 填入配置
-
-# 2. 运行
+cd samples/golang
+cp .env.example .env   # edit .env with your credentials and endpoint
 go run ./cmd/chat/
 ```
 
-## 环境变量
-
-| 变量 | 必需 | 说明 |
-|-----|------|-----|
-| VIBEOPS_ENDPOINT | ✅ | STAROps API 端点，格式: `starops.{region-id}.aliyuncs.com` |
-| ALIBABA_CLOUD_ACCESS_KEY_ID | ❌* | Access Key ID（如使用默认凭据链则可选） |
-| ALIBABA_CLOUD_ACCESS_KEY_SECRET | ❌* | Access Key Secret（如使用默认凭据链则可选） |
-| VIBEOPS_EMPLOYEE_NAME | ❌ | 数字员工名称 (默认 default) |
-| VIBEOPS_MAX_RETRIES | ❌ | SSE 连接最大重试次数（默认 10） |
-
-> *当环境变量 AK/SK 未设置时，SDK 会自动使用阿里云默认凭据链。
-
-## Credential Management
-
-The SDK supports two credential acquisition methods:
-
-### 1. Environment Variables (Highest Priority)
-
-Directly set `ALIBABA_CLOUD_ACCESS_KEY_ID` and `ALIBABA_CLOUD_ACCESS_KEY_SECRET` environment variables:
+## Build
 
 ```bash
-export ALIBABA_CLOUD_ACCESS_KEY_ID="your-access-key-id"
-export ALIBABA_CLOUD_ACCESS_KEY_SECRET="your-access-key-secret"
+make build        # build all programs into ./bin
+make test         # run tests
+make lint         # go vet + gofmt check
+# or build a single command directly:
+go build -o bin/chat ./cmd/chat/
 ```
 
-### 2. Alibaba Cloud Default Credential Chain (Auto-fallback)
+## Running the Samples
 
-When environment variable AK/SK are not set, `LoadConfigFromEnv()` automatically falls back to the Alibaba Cloud default credential chain (via `credentials-go` SDK).
+### chat — interactive chat
 
-**Credential chain priority:**
-1. Environment variables (`ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET`)
-2. Credentials file (`~/.alibabacloud/credentials`)
-3. ECS RAM Role
-4. OIDC Role SSO
-5. IMDSv2
+```bash
+go run ./cmd/chat/
+```
 
-> **Recommendation:** Use the default credential chain in production environments to avoid hardcoding secrets.
+Multi-turn interactive chat with context preserved within a thread.
 
-## Retry Configuration
+### chat-from-file — run requests from JSON
 
-The SDK has built-in SSE connection auto-reconnect capability for handling network interruptions.
+```bash
+# Single request
+go run ./cmd/chat-from-file/ -file ../../requests/starops/entity.json
 
-**Configuration:**
-- Environment variable `VIBEOPS_MAX_RETRIES`: Maximum retry attempts (default: 10)
+# Batch-process a directory
+go run ./cmd/chat-from-file/ -dir ../../requests/starops/
+```
 
-**Retry strategy:**
-- Exponential backoff: 1s, 2s, 4s, 8s, ... up to 30s maximum
-- Uses `action="reconnect"` to resume the session on reconnection
-- Deduplication via timestamp to avoid processing duplicate events
+### thread-manager — manage threads
 
-**Normal completion:**
-- Receiving a `stream_done` event indicates the conversation completed normally
-- If the connection drops before `stream_done`, the SDK will automatically attempt reconnection
+```bash
+go run ./cmd/thread-manager/ list                # list threads
+go run ./cmd/thread-manager/ get <thread-id>     # thread details
+go run ./cmd/thread-manager/ delete <thread-id>  # delete a thread
+```
 
-### Testing Retry Logic
+## SSE Retry & Reconnection
 
-Use the `-simulate-error` flag to simulate a network disconnection and verify the reconnection mechanism:
+The client streams responses over SSE and recovers transparently from interruptions.
+
+```
+create ──► stream events ──► stream_done ✅ (normal completion)
+              │
+              ├─ channel closed ─────┐
+              ├─ idle timeout ───────┤──► backoff ──► reconnect (action="reconnect") ──► dedupe ──► resume
+              └─ SSE error ──────────┘
+```
+
+- **Normal completion** is marked by a `stream_done` event; a stream ending before it triggers a reconnect.
+- **Exponential backoff**: `1s, 2s, 4s, 8s, 16s, 30s` (capped at 30s), up to `VIBEOPS_MAX_RETRIES` attempts.
+- **Reconnect** sends `action="reconnect"` and copies the original `threadId` / variables.
+- **Deduplication**: after reconnecting, messages are filtered by timestamp so none are delivered twice.
+
+> [!NOTE]
+> After exceeding the maximum retries, the client returns an error event instead of hanging.
+
+The retry logic lives in [`internal/client/retry.go`](internal/client/retry.go).
+
+### Testing the retry logic
 
 ```bash
 go run ./cmd/chat/ -simulate-error
 ```
 
-**Behavior when enabled:**
-1. Creates a session and sends a message normally
-2. After receiving the first SSE event, actively simulates a network disconnection
-3. Client outputs retry logs and performs exponential backoff
-4. After automatic reconnection, deduplicates via timestamp and continues receiving subsequent events
-5. Eventually receives all messages completely until `stream_done`
+With `-simulate-error`, the client:
 
-## 示例程序
+1. Creates a thread and sends a message normally.
+2. After the first events arrive, simulates a network disconnection.
+3. Logs the retry and performs exponential backoff.
+4. Reconnects, deduplicates by timestamp, and continues.
+5. Receives all messages through to `stream_done`.
 
-### chat - 交互式对话
+## Credentials
 
-```bash
-go run ./cmd/chat/
-```
+The Go sample supports two credential sources, in priority order:
 
-支持多轮对话，在同一会话中保持上下文。
+1. **Environment variables** — `ALIBABA_CLOUD_ACCESS_KEY_ID` and `ALIBABA_CLOUD_ACCESS_KEY_SECRET`.
+2. **Default credential chain** — when AK/SK are absent, `LoadConfigFromEnv()` falls back to the Alibaba
+   Cloud default chain via `credentials-go`:
+   environment → config file (`~/.alibabacloud/credentials`) → ECS RAM role → OIDC → IMDSv2.
 
-### chat-from-file - 从文件加载请求
+> [!TIP]
+> Prefer the credential chain in production to avoid hardcoding secrets.
 
-```bash
-# 处理单个文件
-go run ./cmd/chat-from-file/ -file ../../requests/starops/entity.json
+## Environment Variables
 
-# 批量处理目录
-go run ./cmd/chat-from-file/ -dir ../../requests/starops/
-```
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `VIBEOPS_ENDPOINT` | ✅ | — | StarOps API endpoint, e.g. `starops.cn-beijing.aliyuncs.com` |
+| `VIBEOPS_WORKSPACE` | ✅ | — | Workspace ID |
+| `ALIBABA_CLOUD_ACCESS_KEY_ID` | ❌* | — | Access Key ID (optional when using the credential chain) |
+| `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | ❌* | — | Access Key Secret (optional when using the credential chain) |
+| `VIBEOPS_REGION` | ❌ | `cn-hangzhou` | Region (should match the endpoint) |
+| `VIBEOPS_EMPLOYEE_NAME` | ❌ | `default` | Digital employee name |
+| `VIBEOPS_MAX_RETRIES` | ❌ | `10` | Max SSE reconnect attempts |
+| `VIBEOPS_IDLE_TIMEOUT` | ❌ | `60` | Idle timeout (seconds); reconnect if no message arrives within this window |
 
-日志自动输出到 `output/` 目录。
+> [!IMPORTANT]
+> \*When AK/SK are not set, the client uses the Alibaba Cloud default credential chain.
 
-### chat-interactive - 交互事件处理
+## Command-Line Flags
 
-```bash
-go run ./cmd/chat-interactive/
-```
+| Flag | Applies to | Description |
+|------|-----------|-------------|
+| `-simulate-error` | `chat`, `chat-from-file` | Simulate a network disconnection to exercise retries |
+| `-file <path>` | `chat-from-file` | Load a single request from a JSON file |
+| `-dir <path>` | `chat-from-file` | Batch-process every JSON request in a directory |
 
-处理 Agent 返回的确认、选择、输入等交互事件。
-
-### thread-manager - 会话管理
-
-```bash
-go run ./cmd/thread-manager/ list              # 列出会话
-go run ./cmd/thread-manager/ get <thread-id>   # 查看详情
-go run ./cmd/thread-manager/ delete <thread-id> # 删除会话
-```
-
-## 请求文件
-
-`requests/starops/` 目录包含各类请求示例：
-
-| 文件 | 场景 |
-|-----|------|
-| entity.json | 实体查询 |
-| sls_query.json | 日志查询 |
-| text_to_sql.json | SQL 生成 |
-| alert_management.json | 告警管理 |
-
-## 目录结构
+## Project Structure
 
 ```
 samples/golang/
 ├── cmd/
-│   ├── chat/              # 交互式对话
-│   ├── chat-from-file/    # 从文件加载请求
-│   ├── chat-interactive/  # 交互事件处理
-│   └── thread-manager/    # 会话管理
-├── internal/client/       # 客户端实现
-└── types/                 # 类型定义
+│   ├── chat/              # Interactive chat
+│   ├── chat-from-file/    # Run requests from JSON (file or directory)
+│   └── thread-manager/    # Thread management
+├── internal/
+│   ├── client/            # Core client: chat, threads, retry, printers, errors
+│   │   ├── client.go      # AgentClient, config, chat methods
+│   │   ├── retry.go       # SSE reconnection, backoff, dedupe
+│   │   ├── credentials.go # Default credential chain
+│   │   ├── thread.go      # Thread management API
+│   │   └── ...
+│   └── logger/            # Structured logging
+├── types/                 # Event & input type definitions
+├── Makefile
+├── go.mod
+└── go.sum
 ```
+
+## SDK Dependencies
+
+- `github.com/alibabacloud-go/starops-20260428` — Alibaba Cloud StarOps SDK
+- `github.com/alibabacloud-go/darabonba-openapi/v2` — OpenAPI client
+- `github.com/alibabacloud-go/tea` — Tea runtime
+- `github.com/aliyun/credentials-go` — Alibaba Cloud credential chain

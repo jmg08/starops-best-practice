@@ -18,7 +18,7 @@ async def main_async():
     print("🚀 VibeOps Chat (Python)")
     print("=" * 60)
 
-    simulate_error = "--simulate-error" in sys.argv
+    simulate_error = "-simulate-error" in sys.argv
 
     try:
         # Load configuration

@@ -29,7 +29,7 @@ public class Chat {
 
         boolean simulateError = false;
         for (String arg : args) {
-            if ("--simulate-error".equals(arg)) {
+            if ("-simulate-error".equals(arg)) {
                 simulateError = true;
             }
         }
