@@ -2,10 +2,35 @@
  * 默认凭据链支持 - 与 Go 实现保持一致
  * 凭据链优先级：环境变量 > OIDC > CLI配置文件 > 配置文件(~/.alibabacloud/credentials) > IAM角色
  */
-import Credential from '@alicloud/credentials';
+import CredentialPkg from '@alicloud/credentials';
+
+type CredentialValue = {
+  accessKeyId?: string;
+  accessKeySecret?: string;
+};
+
+type CredentialClient = {
+  getCredential(): Promise<CredentialValue>;
+};
+
+type CredentialConstructor = new () => CredentialClient;
+
+function resolveCredentialConstructor(pkg: unknown): CredentialConstructor {
+  const moduleValue = pkg as Record<string, unknown> | undefined;
+  const defaultValue = moduleValue?.default as Record<string, unknown> | undefined;
+  const candidates = [pkg, moduleValue?.default, defaultValue?.default];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'function') {
+      return candidate as CredentialConstructor;
+    }
+  }
+
+  throw new TypeError('@alicloud/credentials 未导出可用的 Credential 构造函数');
+}
 
 export async function loadCredentialsFromChain(): Promise<{ accessKeyId: string; accessKeySecret: string }> {
-  // undefined config triggers default credential chain
+  const Credential = resolveCredentialConstructor(CredentialPkg);
   const cred = new Credential();
   const credential = await cred.getCredential();
   const accessKeyId = credential.accessKeyId;
