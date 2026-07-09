@@ -16,6 +16,8 @@ public class Config {
     private String accessKeyId;
     private String accessKeySecret;
     private String employeeName;
+    private RetryConfig retryConfig = RetryConfig.getDefault();
+    private boolean simulateNetworkError = false;
 
     public Config() {}
 
@@ -59,6 +61,9 @@ public class Config {
         if (cfg.region == null || cfg.region.isEmpty()) {
             cfg.region = "cn-hangzhou";
         }
+
+        // 加载重试配置（支持环境变量覆盖）
+        cfg.retryConfig = RetryConfig.loadFromEnv();
 
         return cfg;
     }
@@ -118,5 +123,21 @@ public class Config {
 
     public void setEmployeeName(String employeeName) {
         this.employeeName = employeeName;
+    }
+
+    public RetryConfig getRetryConfig() {
+        return retryConfig;
+    }
+
+    public void setRetryConfig(RetryConfig retryConfig) {
+        this.retryConfig = retryConfig;
+    }
+
+    public boolean isSimulateNetworkError() {
+        return simulateNetworkError;
+    }
+
+    public void setSimulateNetworkError(boolean simulateNetworkError) {
+        this.simulateNetworkError = simulateNetworkError;
     }
 }

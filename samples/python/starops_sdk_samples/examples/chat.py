@@ -18,10 +18,16 @@ async def main_async():
     print("🚀 VibeOps Chat (Python)")
     print("=" * 60)
 
+    simulate_error = "--simulate-error" in sys.argv
+
     try:
         # Load configuration
         cfg = Config.load_from_env()
         print(f"📋 Employee: {cfg.employee_name}\n")
+
+        if simulate_error:
+            cfg.simulate_network_error = True
+            print("⚠️  已启用网络断连模拟，将在收到首个事件后触发重试")
 
         # Create client
         client = AgentClient(cfg)

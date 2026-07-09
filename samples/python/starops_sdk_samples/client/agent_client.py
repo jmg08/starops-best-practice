@@ -5,6 +5,7 @@ STAROps SDK Agent 客户端
 
 import asyncio
 import json
+import sys
 import time
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, Dict, List, Optional
@@ -16,6 +17,16 @@ from alibabacloud_tea_util import models as util_models
 
 from .config import Config
 from .errors import SDKException, ErrorCode
+from .retry import (
+    RetryConfig,
+    RetryState,
+    ConnectionOutcome,
+    load_retry_config_from_env,
+    is_stream_done_event,
+    extract_newest_timestamp,
+    calculate_backoff,
+    build_reconnect_request,
+)
 
 
 @dataclass
@@ -167,25 +178,176 @@ class AgentClient:
                 variables=variables,
             )
 
-            # Use SSE streaming
-            runtime = util_models.RuntimeOptions()
-            runtime.connect_timeout = 30000
-            runtime.read_timeout = 300000
-            
-            response_iterator = self._client.create_chat_with_sse(request, {}, runtime)
-
-            for response in response_iterator:
-                if response.body:
-                    body_dict = response.body.to_map()
-                    raw_json = json.dumps(body_dict, ensure_ascii=False)
-                    event = ChatEvent.from_response(body_dict, raw_json, 200)
-                    yield event
-                    if event.is_done:
-                        return
-
-            yield ChatEvent.done()
+            # 使用带重试能力的 SSE 流处理 / Use SSE streaming with retry
+            config = load_retry_config_from_env()
+            async for event in self._stream_sse(request, config):
+                yield event
         except Exception as e:
             yield ChatEvent.from_error(SDKException.chat_failed(e))
+
+    # ===================== SSE 重试编排 =====================
+
+    async def _stream_sse(
+        self, request: Any, config: RetryConfig
+    ) -> AsyncIterator[ChatEvent]:
+        """启动带重试能力的 SSE 流处理（外层重连编排）
+
+        连接中断时自动重连并通过 timestamp 去重；stream_done 是唯一正常结束标志。
+        """
+        state = RetryState()
+        while True:
+            outcome = ConnectionOutcome.INTERRUPTED
+            terminal_event: Optional[ChatEvent] = None
+            async for out, ev in self._stream_once(request, state, config):
+                if out is None:
+                    yield ev
+                    continue
+                outcome = out
+                terminal_event = ev
+                break
+
+            if outcome == ConnectionOutcome.DONE:
+                if terminal_event is not None:
+                    yield terminal_event
+                return
+            if outcome == ConnectionOutcome.FATAL:
+                if terminal_event is not None:
+                    yield terminal_event
+                return
+
+            # INTERRUPTED：执行退避并判定是否继续重试
+            if not await self._prepare_reconnect(state, config):
+                yield ChatEvent.from_error(
+                    SDKException(
+                        ErrorCode.NETWORK_ERROR,
+                        f"超过最大重试次数 {config.max_retries} 次，连接中断",
+                    )
+                )
+                return
+            request = build_reconnect_request(request)
+
+    async def _stream_once(
+        self, request: Any, state: RetryState, config: RetryConfig
+    ) -> AsyncIterator[tuple]:
+        """消费单次连接的事件流
+
+        以 (outcome, event) 元组产出：
+        - (None, event)：普通事件，需转发
+        - (ConnectionOutcome.DONE, event)：收到 stream_done，正常结束
+        - (ConnectionOutcome.INTERRUPTED, None)：连接中断，需重连
+        - (ConnectionOutcome.FATAL, error_event)：致命错误
+        空闲超时通过 asyncio.wait_for 包装队列读取实现。
+        """
+        loop = asyncio.get_running_loop()
+        queue: asyncio.Queue = asyncio.Queue()
+        start_time = time.time()
+
+        def _producer() -> None:
+            """在线程中消费同步 SSE 迭代器，结果投递到 asyncio 队列"""
+            try:
+                runtime = util_models.RuntimeOptions()
+                runtime.connect_timeout = 30000
+                runtime.read_timeout = 300000
+                response_iterator = self._client.create_chat_with_sse(
+                    request, {}, runtime
+                )
+                for response in response_iterator:
+                    loop.call_soon_threadsafe(
+                        queue.put_nowait, ("response", response)
+                    )
+                loop.call_soon_threadsafe(queue.put_nowait, ("closed", None))
+            except Exception as exc:  # noqa: BLE001 - 一律视为连接中断
+                loop.call_soon_threadsafe(queue.put_nowait, ("error", exc))
+
+        producer = loop.run_in_executor(None, _producer)
+
+        try:
+            while True:
+                try:
+                    kind, payload = await asyncio.wait_for(
+                        queue.get(), timeout=config.idle_timeout
+                    )
+                except asyncio.TimeoutError:
+                    print("连接中断，中断原因：空闲超时，未收到消息")
+                    yield (ConnectionOutcome.INTERRUPTED, None)
+                    return
+
+                if kind == "closed":
+                    # 通道关闭且未收到 stream_done → 连接中断
+                    print("连接中断，中断原因：通道关闭且未收到 stream_done")
+                    yield (ConnectionOutcome.INTERRUPTED, None)
+                    return
+
+                if kind == "error":
+                    # 错误为 None/关闭标记 → 忽略，继续循环
+                    if payload is None:
+                        continue
+                    # 非 stream_done 的任何错误都视为连接中断，触发重连
+                    print(f"SSE 连接错误: {payload}，准备重连...", file=sys.stderr)
+                    print("连接中断，中断原因：SSE连接错误")
+                    yield (ConnectionOutcome.INTERRUPTED, None)
+                    return
+
+                # kind == "response"
+                response = payload
+                if not response.body:
+                    continue
+                body_dict = response.body.to_map()
+                raw_json = json.dumps(body_dict, ensure_ascii=False)
+                event = ChatEvent.from_response(body_dict, raw_json, 200)
+
+                if is_stream_done_event(event):
+                    event.is_done = True
+                    yield (ConnectionOutcome.DONE, event)
+                    return
+
+                if self._forward_event(event, state):
+                    state.retry_count = 0
+                    yield (None, event)
+
+                # 模拟断连（转发后延迟触发）
+                if getattr(self.config, "simulate_network_error", False):
+                    if time.time() - start_time > 5:
+                        self.config.simulate_network_error = False
+                        print("模拟网络断连，触发重连...", file=sys.stderr)
+                        yield (ConnectionOutcome.INTERRUPTED, None)
+                        return
+        finally:
+            # 取消后台生产者，避免线程/连接泄漏
+            producer.cancel()
+
+    def _forward_event(self, event: ChatEvent, state: RetryState) -> bool:
+        """去重判定普通事件，返回是否应转发该消息
+
+        重连后进入去重窗口，仅当收到比 last_timestamp 更新的消息才转发并退出窗口。
+        """
+        ts = extract_newest_timestamp(event, state.last_timestamp)
+
+        if state.in_dedupe_window:
+            if ts == "":
+                return False  # 重复消息，跳过
+            state.in_dedupe_window = False  # 收到新消息，退出去重窗口
+
+        if ts != "":
+            state.last_timestamp = ts
+        return True
+
+    async def _prepare_reconnect(
+        self, state: RetryState, config: RetryConfig
+    ) -> bool:
+        """执行退避并判定是否继续重试；返回 False 表示超过最大重试次数应终止"""
+        if state.retry_count >= config.max_retries:
+            return False
+        state.retry_count += 1
+        backoff = calculate_backoff(state.retry_count, config)
+        print(
+            f"连接中断，{backoff}s 后重试 (第 {state.retry_count}/{config.max_retries} 次)",
+            file=sys.stderr,
+        )
+        await asyncio.sleep(backoff)
+        state.in_dedupe_window = True  # 进入去重窗口
+        return True
+
 
     async def interact(
         self, thread_id: str, user_interactive: str,

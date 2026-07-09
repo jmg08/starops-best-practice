@@ -11,8 +11,10 @@ import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.aliyun.auth.credentials.Credential;
 import com.aliyun.auth.credentials.provider.StaticCredentialProvider;
@@ -35,6 +37,9 @@ import com.aliyun.sdk.service.starops20260428.models.ListThreadsResponse;
 import com.aliyun.sdk.service.starops20260428.models.ListThreadsResponseBody;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import com.alibaba.cloud.starops.samples.client.RetrySupport.ConnectionOutcome;
+import com.alibaba.cloud.starops.samples.client.RetrySupport.RetryState;
 
 import darabonba.core.ResponseIterable;
 import darabonba.core.client.ClientOverrideConfiguration;
@@ -168,33 +173,8 @@ public class AgentClient implements AutoCloseable {
                         .variables(finalVariables)
                         .build();
 
-                // 使用 SSE 流式迭代
-                ResponseIterable<CreateChatResponseBody> iterable =
-                        client.createChatWithResponseIterable(request);
-
-                Iterator<CreateChatResponseBody> iterator = iterable.iterator();
-                while (iterator.hasNext()) {
-                    CreateChatResponseBody body = iterator.next();
-                    if (body != null) {
-                        // 将 ResponseBody 转为 JsonNode 以保持与现有 ChatEvent 兼容
-                        Map<String, Object> map = bodyToMap(body);
-                        String jsonStr = objectMapper.writeValueAsString(map);
-                        JsonNode jsonNode = objectMapper.readTree(jsonStr);
-                        ChatEvent event = ChatEvent.fromResponse(jsonNode, jsonStr, 200);
-                        events.put(event);
-
-                        if (event.isDone()) {
-                            return;
-                        }
-                    }
-                }
-
-                events.put(ChatEvent.done());
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                try {
-                    events.put(ChatEvent.error(SDKException.cancelled()));
-                } catch (InterruptedException ignored) {}
+                // 带重试能力的 SSE 流处理
+                streamSSE(request, events);
             } catch (Exception e) {
                 try {
                     events.put(ChatEvent.error(SDKException.chatFailed(e)));
@@ -265,6 +245,200 @@ public class AgentClient implements AutoCloseable {
         });
 
         return events;
+    }
+
+    /**
+     * 启动带重试能力的 SSE 流处理（默认启用重试）
+     * 编排层：外层重连循环，连接中断时自动重连并通过 timestamp 去重
+     */
+    private void streamSSE(CreateChatRequest req, BlockingQueue<ChatEvent> events) {
+        RetryConfig cfg = config.getRetryConfig();
+        if (cfg == null) {
+            cfg = RetryConfig.getDefault();
+        }
+        RetryState state = new RetryState();
+        while (true) {
+            ConnectionOutcome outcome = streamOnce(req, events, state, cfg);
+            if (outcome == ConnectionOutcome.DONE) {
+                return; // stream_done，正常结束
+            }
+            if (outcome == ConnectionOutcome.FATAL) {
+                return; // 取消或致命错误，错误已写入
+            }
+            // INTERRUPTED：需重连
+            if (!prepareReconnect(events, state, cfg)) {
+                return; // 超过最大重试或取消，错误已写入
+            }
+            req = RetrySupport.buildReconnectRequest(req);
+        }
+    }
+
+    /**
+     * 消费单次连接的事件流，返回本次连接的结束原因
+     * 使用带超时的迭代实现空闲超时：后台线程消费 SSE 迭代器，主循环按 idleTimeout 轮询
+     */
+    private ConnectionOutcome streamOnce(CreateChatRequest req, BlockingQueue<ChatEvent> events,
+            RetryState state, RetryConfig cfg) {
+        BlockingQueue<Object> raw = new LinkedBlockingQueue<>();
+        AtomicBoolean cancelled = new AtomicBoolean(false);
+        long start = System.currentTimeMillis();
+
+        Future<?> future = executor.submit(() -> {
+            try {
+                ResponseIterable<CreateChatResponseBody> iterable =
+                        client.createChatWithResponseIterable(req);
+                Iterator<CreateChatResponseBody> iterator = iterable.iterator();
+                while (iterator.hasNext()) {
+                    CreateChatResponseBody body = iterator.next();
+                    if (cancelled.get()) {
+                        return;
+                    }
+                    if (body != null) {
+                        raw.offer(body);
+                    }
+                }
+                raw.offer(STREAM_END);
+            } catch (Throwable t) {
+                if (!cancelled.get()) {
+                    raw.offer(new StreamError(t));
+                }
+            }
+        });
+
+        try {
+            while (true) {
+                Object item = raw.poll(cfg.getIdleTimeoutMs(), TimeUnit.MILLISECONDS);
+                if (item == null) {
+                    // 空闲超时，未收到消息 → 连接中断
+                    cancelled.set(true);
+                    future.cancel(true);
+                    System.out.println("连接中断，中断原因：空闲超时，未收到消息");
+                    return ConnectionOutcome.INTERRUPTED;
+                }
+                if (item == STREAM_END) {
+                    // 通道关闭且未收到 stream_done → 连接中断
+                    System.out.println("连接中断，中断原因：通道关闭且未收到 stream_done");
+                    return ConnectionOutcome.INTERRUPTED;
+                }
+                if (item instanceof StreamError) {
+                    // 区分队列中的 null/关闭标记与实际异常
+                    Throwable err = ((StreamError) item).cause;
+                    if (err == null) {
+                        continue; // 无实际异常 → 忽略，继续循环
+                    }
+                    // 非 stream_done 的任何错误都视为连接中断，触发重连
+                    System.err.println("SSE 连接错误: " + err + "，准备重连...");
+                    System.out.println("连接中断，中断原因：SSE连接错误");
+                    return ConnectionOutcome.INTERRUPTED;
+                }
+
+                // 正常事件
+                CreateChatResponseBody body = (CreateChatResponseBody) item;
+                Map<String, Object> map = bodyToMap(body);
+                String jsonStr = objectMapper.writeValueAsString(map);
+                JsonNode jsonNode = objectMapper.readTree(jsonStr);
+                ChatEvent event = ChatEvent.fromResponse(jsonNode, jsonStr, 200);
+
+                if (RetrySupport.isStreamDoneEvent(event)) { // stream_done 是唯一正常结束标志
+                    event.setDone(true);
+                    events.put(event);
+                    cancelled.set(true);
+                    future.cancel(true);
+                    return ConnectionOutcome.DONE;
+                }
+
+                if (forwardEvent(event, state, events)) {
+                    state.retryCount = 0;
+                }
+
+                if (config.isSimulateNetworkError()) { // 模拟断连（转发后触发）
+                    if (System.currentTimeMillis() - start > 5000) {
+                        config.setSimulateNetworkError(false);
+                        System.err.println("模拟网络断连，触发重连...");
+                        cancelled.set(true);
+                        future.cancel(true);
+                        return ConnectionOutcome.INTERRUPTED;
+                    }
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            cancelled.set(true);
+            future.cancel(true);
+            try {
+                events.put(ChatEvent.error(SDKException.cancelled()));
+            } catch (InterruptedException ignored) {}
+            return ConnectionOutcome.FATAL;
+        } catch (Exception e) {
+            cancelled.set(true);
+            future.cancel(true);
+            try {
+                events.put(ChatEvent.error(SDKException.chatFailed(e)));
+            } catch (InterruptedException ignored) {}
+            return ConnectionOutcome.FATAL;
+        }
+    }
+
+    /**
+     * 去重转发普通事件，返回是否实际转发了消息
+     * Deduplicate and forward normal events; return whether a message was forwarded
+     */
+    private boolean forwardEvent(ChatEvent event, RetryState state, BlockingQueue<ChatEvent> events)
+            throws InterruptedException {
+        String ts = RetrySupport.extractNewestTimestamp(event, state.lastTimestamp);
+
+        if (state.inDedupeWindow) {
+            if (ts.isEmpty()) {
+                return false; // 重复消息，跳过
+            }
+            state.inDedupeWindow = false; // 收到新消息，退出去重窗口
+        }
+
+        if (!ts.isEmpty()) {
+            state.lastTimestamp = ts;
+        }
+        events.put(event);
+        return true;
+    }
+
+    /**
+     * 执行退避并判定是否继续重试；返回 false 表示应终止
+     * Perform backoff and decide whether to continue retrying; false means stop
+     */
+    private boolean prepareReconnect(BlockingQueue<ChatEvent> events, RetryState state, RetryConfig cfg) {
+        if (state.retryCount >= cfg.getMaxRetries()) {
+            try {
+                events.put(ChatEvent.error(new SDKException(ErrorCode.NETWORK_ERROR,
+                        "超过最大重试次数 " + cfg.getMaxRetries() + " 次，连接中断")));
+            } catch (InterruptedException ignored) {}
+            return false;
+        }
+        state.retryCount++;
+        long backoff = RetrySupport.calculateBackoff(state.retryCount, cfg);
+        System.err.printf("连接中断，%dms 后重试 (第 %d/%d 次)%n",
+                backoff, state.retryCount, cfg.getMaxRetries());
+        try {
+            Thread.sleep(backoff);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            try {
+                events.put(ChatEvent.error(SDKException.cancelled()));
+            } catch (InterruptedException ignored) {}
+            return false;
+        }
+        state.inDedupeWindow = true; // 进入去重窗口
+        return true;
+    }
+
+    /** 后台迭代结束哨兵 / Sentinel for iterator completion */
+    private static final Object STREAM_END = new Object();
+
+    /** 后台迭代异常包装 / Wrapper for iterator error */
+    private static final class StreamError {
+        final Throwable cause;
+        StreamError(Throwable cause) {
+            this.cause = cause;
+        }
     }
 
     /**

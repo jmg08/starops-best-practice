@@ -37,6 +37,7 @@ public class ChatFromFile {
     private static String dirPath = null;
     private static boolean simpleMode = false;
     private static String outputDir = "../../requests/output";
+    private static boolean simulateError = false;
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public static void main(String[] args) {
@@ -53,6 +54,11 @@ public class ChatFromFile {
         try {
             // Load configuration
             Config cfg = Config.loadFromEnv();
+
+            if (simulateError) {
+                cfg.setSimulateNetworkError(true);
+                System.out.println("⚠️  已启用网络断连模拟，将在收到首个事件后触发重试");
+            }
 
             // Create client
             AgentClient client = new AgentClient(cfg);
@@ -91,6 +97,9 @@ public class ChatFromFile {
                     break;
                 case "-output":
                     if (i + 1 < args.length) outputDir = args[++i];
+                    break;
+                case "-simulate-error":
+                    simulateError = true;
                     break;
             }
         }

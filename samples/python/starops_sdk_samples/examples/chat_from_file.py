@@ -27,6 +27,7 @@ def parse_args():
     parser.add_argument("-dir", dest="dir_path", help="请求文件目录")
     parser.add_argument("-simple", action="store_true", help="简洁模式")
     parser.add_argument("-output", default="../../requests/output", help="输出目录")
+    parser.add_argument("-simulate-error", dest="simulate_error", action="store_true", help="模拟网络断连，测试重试逻辑")
     return parser.parse_args()
 
 
@@ -185,6 +186,10 @@ async def main_async():
     try:
         # Load configuration
         cfg = Config.load_from_env()
+
+        if args.simulate_error:
+            cfg.simulate_network_error = True
+            print("⚠️  已启用网络断连模拟，将在收到首个事件后触发重试")
 
         # Create client
         client = AgentClient(cfg)

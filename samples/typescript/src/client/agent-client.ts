@@ -8,6 +8,16 @@ import * as $OpenApi from '@alicloud/openapi-client';
 import * as $dara from '@darabonba/typescript';
 import { Config } from './config.js';
 import { SDKException, ErrorCode } from './errors.js';
+import {
+  RetryConfig,
+  RetryState,
+  ConnectionOutcome,
+  loadRetryConfigFromEnv,
+  calculateBackoff,
+  extractNewestTimestamp,
+  isStreamDoneEvent,
+  buildReconnectRequest,
+} from './retry.js';
 
 // Handle ESM/CJS interop
 const Starops20260428Client = (Starops20260428Module as any).default || Starops20260428Module;
@@ -145,30 +155,9 @@ export class AgentClient {
         variables: vars,
       });
 
-      const runtime = new $dara.RuntimeOptions({
-        readTimeout: 120000,  // 2 minutes
-        connectTimeout: 30000, // 30 seconds
-      });
-      const responseIterator = await this.client.createChatWithSSE(request, {}, runtime);
-
-      for await (const response of responseIterator) {
-        if (response.body) {
-          const bodyObj = response.body as unknown as Record<string, unknown>;
-          const rawJson = JSON.stringify(bodyObj);
-          const event: ChatEvent = {
-            id: bodyObj?.id as string | undefined,
-            event: bodyObj?.event as string | undefined,
-            body: bodyObj,
-            rawJson,
-            statusCode: 200,
-            isDone: isDoneMessage(bodyObj),
-          };
-          yield event;
-          if (event.isDone) return;
-        }
-      }
-
-      yield { rawJson: '', statusCode: 200, isDone: true };
+      // 使用带重试能力的编排层处理 SSE 流
+      const config = loadRetryConfigFromEnv();
+      yield* this.streamSSE(request, config);
     } catch (e) {
       const err = e as Error;
       const sdkErr = SDKException.chatFailed(err);
@@ -497,5 +486,190 @@ export class AgentClient {
     }
 
     return '';
+  }
+
+  // ===================== SSE 重试编排 =====================
+
+  /**
+   * 带重试能力的 SSE 流处理（编排层）
+   * 外层重连循环：连接中断时自动重连并通过 timestamp 去重
+   */
+  private async *streamSSE(
+    request: any,
+    config: RetryConfig
+  ): AsyncGenerator<ChatEvent, void, void> {
+    const state: RetryState = {
+      lastTimestamp: '',
+      inDedupeWindow: false,
+      retryCount: 0,
+    };
+    let req = request;
+
+    while (true) {
+      const iter = this.streamOnce(req, state, config);
+      let result = await iter.next();
+      while (!result.done) {
+        yield result.value;
+        result = await iter.next();
+      }
+      const outcome = result.value;
+
+      if (outcome === ConnectionOutcome.DONE || outcome === ConnectionOutcome.FATAL) {
+        return;
+      }
+
+      // INTERRUPTED：执行退避并判定是否继续重试
+      const canRetry = await this.prepareReconnect(state, config);
+      if (!canRetry) {
+        yield {
+          rawJson: '',
+          statusCode: 0,
+          isDone: false,
+          error: new Error(`超过最大重试次数 ${config.maxRetries} 次，连接中断`),
+        };
+        return;
+      }
+      req = buildReconnectRequest(req);
+    }
+  }
+
+  /**
+   * 消费单次连接的事件流，返回本次连接的结束原因
+   * 空闲超时通过 setTimeout + Promise.race 实现
+   */
+  private async *streamOnce(
+    request: any,
+    state: RetryState,
+    config: RetryConfig
+  ): AsyncGenerator<ChatEvent, ConnectionOutcome, void> {
+    const runtime = new $dara.RuntimeOptions({
+      readTimeout: 300000,
+      connectTimeout: 30000,
+    });
+    const start = Date.now();
+
+    let iterator: AsyncIterator<any>;
+    try {
+      const responseIterator = await this.client.createChatWithSSE(request, {}, runtime);
+      iterator = responseIterator[Symbol.asyncIterator]();
+    } catch (err) {
+      console.error(`SSE 连接错误: ${err}，准备重连...`);
+      console.log('连接中断，中断原因：SSE连接错误');
+      return ConnectionOutcome.INTERRUPTED;
+    }
+
+    while (true) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const nextPromise = iterator.next();
+      const timeoutPromise = new Promise<'timeout'>((resolve) => {
+        timer = setTimeout(() => resolve('timeout'), config.idleTimeout);
+      });
+
+      let raced: IteratorResult<any> | 'timeout';
+      try {
+        raced = await Promise.race([nextPromise, timeoutPromise]);
+      } catch (err) {
+        if (timer) clearTimeout(timer);
+        // 错误为 null/undefined → 忽略，继续循环
+        if (err === null || err === undefined) {
+          continue;
+        }
+        // 非 stream_done 的任何错误都视为连接中断，触发重连
+        console.error(`SSE 连接错误: ${err}，准备重连...`);
+        console.log('连接中断，中断原因：SSE连接错误');
+        return ConnectionOutcome.INTERRUPTED;
+      }
+      if (timer) clearTimeout(timer);
+
+      if (raced === 'timeout') {
+        // 放弃当前连接，吞掉遗留 Promise 以避免未处理的 rejection
+        nextPromise.catch(() => {});
+        console.log('连接中断，中断原因：空闲超时，未收到消息');
+        return ConnectionOutcome.INTERRUPTED;
+      }
+
+      const result = raced;
+      if (result.done) {
+        console.log('连接中断，中断原因：通道关闭且未收到 stream_done');
+        return ConnectionOutcome.INTERRUPTED;
+      }
+
+      const response = result.value;
+      if (!response || !response.body) {
+        continue;
+      }
+
+      const bodyObj = response.body as unknown as Record<string, unknown>;
+      const event: ChatEvent = {
+        id: bodyObj?.id as string | undefined,
+        event: bodyObj?.event as string | undefined,
+        body: bodyObj,
+        rawJson: JSON.stringify(bodyObj),
+        statusCode: 200,
+        isDone: false,
+      };
+
+      // stream_done 是唯一正常结束标志
+      if (isStreamDoneEvent(event)) {
+        event.isDone = true;
+        yield event;
+        return ConnectionOutcome.DONE;
+      }
+
+      // 去重转发普通事件
+      if (this.forwardEvent(event, state)) {
+        state.retryCount = 0;
+        yield event;
+      }
+
+      // 模拟断连（转发后触发）
+      if (this.config.simulateNetworkError) {
+        if (Date.now() - start > 5000) {
+          this.config.simulateNetworkError = false;
+          console.error('模拟网络断连，触发重连...');
+          return ConnectionOutcome.INTERRUPTED;
+        }
+      }
+    }
+  }
+
+  /**
+   * 去重转发判定：返回是否应当转发该事件
+   * 重连去重窗口内仅转发比 lastTimestamp 更新的消息
+   */
+  private forwardEvent(event: ChatEvent, state: RetryState): boolean {
+    const ts = extractNewestTimestamp(event, state.lastTimestamp);
+
+    if (state.inDedupeWindow) {
+      if (ts === '') {
+        return false; // 重复消息，跳过
+      }
+      state.inDedupeWindow = false; // 收到新消息，退出去重窗口
+    }
+
+    if (ts !== '') {
+      state.lastTimestamp = ts;
+    }
+    return true;
+  }
+
+  /**
+   * 执行退避并判定是否继续重试；返回 false 表示应终止
+   */
+  private async prepareReconnect(
+    state: RetryState,
+    config: RetryConfig
+  ): Promise<boolean> {
+    if (state.retryCount >= config.maxRetries) {
+      return false;
+    }
+    state.retryCount++;
+    const backoff = calculateBackoff(state.retryCount, config);
+    console.error(
+      `连接中断，${backoff}ms 后重试 (第 ${state.retryCount}/${config.maxRetries} 次)`
+    );
+    await new Promise((resolve) => setTimeout(resolve, backoff));
+    state.inDedupeWindow = true; // 进入去重窗口
+    return true;
   }
 }

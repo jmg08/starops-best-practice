@@ -10,6 +10,7 @@ from typing import Optional
 from dotenv import load_dotenv
 
 from .errors import SDKException
+from .retry import RetryConfig, load_retry_config_from_env
 
 
 @dataclass
@@ -21,6 +22,8 @@ class Config:
     access_key_secret: str
     region: str = "cn-hangzhou"
     employee_name: str = "default"
+    retry_config: Optional[RetryConfig] = None  # 重试配置，None 时使用默认配置
+    simulate_network_error: bool = False  # 模拟网络断连，用于测试重试逻辑
 
     @classmethod
     def load_from_env(cls) -> "Config":
@@ -53,4 +56,5 @@ class Config:
             access_key_secret=access_key_secret,
             region=region or "cn-hangzhou",
             employee_name=employee_name or "default",
+            retry_config=load_retry_config_from_env(),
         )

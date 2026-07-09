@@ -5,6 +5,7 @@
 
 import { config as dotenvConfig } from 'dotenv';
 import { SDKException } from './errors.js';
+import type { RetryConfig } from './retry.js';
 
 /** 应用配置 / Application configuration */
 export interface Config {
@@ -14,6 +15,8 @@ export interface Config {
   accessKeySecret: string;
   region: string;
   employeeName: string;
+  retryConfig?: RetryConfig; // 重试配置，未设置时使用默认配置
+  simulateNetworkError?: boolean; // 模拟网络断连，用于测试重试逻辑
 }
 
 /** 从环境变量加载配置 / Load configuration from environment variables */

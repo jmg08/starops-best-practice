@@ -8,18 +8,18 @@ import (
 	"strings"
 	"time"
 
-	starops "github.com/alibabacloud-go/starops-20260428/client"
 	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
+	starops "github.com/alibabacloud-go/starops-20260428/client"
 	"github.com/alibabacloud-go/tea/dara"
 )
 
 // ChatOptions 对话选项
 // 用于配置对话请求的各种参数
 type ChatOptions struct {
-	Timeout    time.Duration          // 超时时间，0 表示不设置超时
-	Variables  map[string]any // 请求变量
-	OnEvent    func(*ChatEvent)       // 事件回调
-	SimpleMode bool                   // 简洁模式，只输出最终文本
+	Timeout    time.Duration    // 超时时间，0 表示不设置超时
+	Variables  map[string]any   // 请求变量
+	OnEvent    func(*ChatEvent) // 事件回调
+	SimpleMode bool             // 简洁模式，只输出最终文本
 }
 
 // Config 应用配置

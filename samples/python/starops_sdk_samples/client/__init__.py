@@ -9,6 +9,7 @@ from .agent_client import AgentClient, ChatEvent, ThreadInfo, ThreadMessage
 from .simple_printer import SimplePrinter
 from .event_printer import EventPrinter
 from .interactive_handler import InteractiveHandler, InteractiveResponse
+from .retry import RetryConfig, RetryState, ConnectionOutcome
 
 __all__ = [
     "Config",
@@ -22,4 +23,7 @@ __all__ = [
     "EventPrinter",
     "InteractiveHandler",
     "InteractiveResponse",
+    "RetryConfig",
+    "RetryState",
+    "ConnectionOutcome",
 ]

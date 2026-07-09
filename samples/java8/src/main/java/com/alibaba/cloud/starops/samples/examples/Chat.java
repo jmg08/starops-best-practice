@@ -27,10 +27,22 @@ public class Chat {
         System.out.println("🚀 VibeOps Chat (Java 8)");
         System.out.println(repeatStr("=", 60));
 
+        boolean simulateError = false;
+        for (String arg : args) {
+            if ("--simulate-error".equals(arg)) {
+                simulateError = true;
+            }
+        }
+
         try {
             // Load configuration
             Config cfg = Config.loadFromEnv();
             System.out.printf("📋 Employee: %s%n%n", cfg.getEmployeeName());
+
+            if (simulateError) {
+                cfg.setSimulateNetworkError(true);
+                System.out.println("⚠️  已启用网络断连模拟，将在收到首个事件后触发重试");
+            }
 
             // Create client
             AgentClient client = new AgentClient(cfg);

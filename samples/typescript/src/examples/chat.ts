@@ -45,6 +45,13 @@ async function main() {
     const cfg = loadConfigFromEnv();
     console.log(`📋 Employee: ${cfg.employeeName}\n`);
 
+    if (process.argv.slice(2).includes('-simulate-error')) {
+      cfg.simulateNetworkError = true;
+      console.log('⚠️  已启用网络断连模拟，将在收到首个事件后触发重试');
+    }
+
+  
+
     // Create client
     const client = new AgentClient(cfg);
 

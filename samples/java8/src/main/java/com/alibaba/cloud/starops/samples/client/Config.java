@@ -16,6 +16,8 @@ public class Config {
     private String accessKeyId;
     private String accessKeySecret;
     private String employeeName;
+    private RetryConfig retryConfig;
+    private boolean simulateNetworkError = false;
 
     public Config() {}
 
@@ -59,6 +61,9 @@ public class Config {
         if (cfg.region == null || cfg.region.isEmpty()) {
             cfg.region = "cn-hangzhou";
         }
+
+        // 加载 SSE 重试配置 / Load SSE retry config
+        cfg.retryConfig = RetryConfig.loadFromEnv();
 
         return cfg;
     }
@@ -118,5 +123,21 @@ public class Config {
 
     public void setEmployeeName(String employeeName) {
         this.employeeName = employeeName;
+    }
+
+    public RetryConfig getRetryConfig() {
+        return retryConfig;
+    }
+
+    public void setRetryConfig(RetryConfig retryConfig) {
+        this.retryConfig = retryConfig;
+    }
+
+    public boolean isSimulateNetworkError() {
+        return simulateNetworkError;
+    }
+
+    public void setSimulateNetworkError(boolean simulateNetworkError) {
+        this.simulateNetworkError = simulateNetworkError;
     }
 }
