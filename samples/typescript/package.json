@@ -26,8 +26,9 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@alicloud/starops20260428": "1.0.0",
+    "@alicloud/credentials": "^2.4.5",
     "@alicloud/openapi-client": "^0.4.0",
+    "@alicloud/starops20260428": "1.0.0",
     "dotenv": "^16.3.0"
   },
   "devDependencies": {

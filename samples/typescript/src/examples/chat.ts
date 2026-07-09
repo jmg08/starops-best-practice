@@ -42,7 +42,7 @@ async function main() {
 
   try {
     // Load configuration
-    const cfg = loadConfigFromEnv();
+    const cfg = await loadConfigFromEnv();
     console.log(`📋 Employee: ${cfg.employeeName}\n`);
 
     if (process.argv.slice(2).includes('-simulate-error')) {

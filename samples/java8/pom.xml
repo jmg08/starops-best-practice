@@ -51,6 +51,13 @@
             <version>2.3.2</version>
         </dependency>
 
+        <!-- 阿里云默认凭据链 -->
+        <dependency>
+            <groupId>com.aliyun</groupId>
+            <artifactId>credentials-java</artifactId>
+            <version>0.3.12</version>
+        </dependency>
+
         <!-- Testing -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

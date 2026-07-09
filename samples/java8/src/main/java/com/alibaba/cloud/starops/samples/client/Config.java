@@ -38,6 +38,18 @@ public class Config {
         cfg.accessKeySecret = getEnvValue(dotenv, "ALIBABA_CLOUD_ACCESS_KEY_SECRET");
         cfg.employeeName = getEnvValue(dotenv, "VIBEOPS_EMPLOYEE_NAME");
 
+        // AK/SK 为空时回退阿里云默认凭据链（环境变量 > OIDC > CLI配置 > 配置文件 > IAM角色）
+        if (cfg.accessKeyId == null || cfg.accessKeyId.isEmpty()
+                || cfg.accessKeySecret == null || cfg.accessKeySecret.isEmpty()) {
+            try {
+                String[] creds = Credentials.loadFromChain();
+                cfg.accessKeyId = creds[0];
+                cfg.accessKeySecret = creds[1];
+            } catch (Exception e) {
+                System.err.println("凭据链加载失败: " + e.getMessage() + "，请手动设置环境变量");
+            }
+        }
+
         // Validate required fields
         List<String> missingVars = new ArrayList<>();
         if (cfg.endpoint == null || cfg.endpoint.isEmpty()) {

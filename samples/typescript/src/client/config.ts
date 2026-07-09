@@ -5,6 +5,7 @@
 
 import { config as dotenvConfig } from 'dotenv';
 import { SDKException } from './errors.js';
+import { loadCredentialsFromChain } from './credentials.js';
 import type { RetryConfig } from './retry.js';
 
 /** 应用配置 / Application configuration */
@@ -20,15 +21,26 @@ export interface Config {
 }
 
 /** 从环境变量加载配置 / Load configuration from environment variables */
-export function loadConfigFromEnv(): Config {
+export async function loadConfigFromEnv(): Promise<Config> {
   dotenvConfig();
 
   const workspace = process.env.VIBEOPS_WORKSPACE || '';
   const endpoint = process.env.VIBEOPS_ENDPOINT || '';
   const region = process.env.VIBEOPS_REGION || 'cn-hangzhou';
-  const accessKeyId = process.env.ALIBABA_CLOUD_ACCESS_KEY_ID || '';
-  const accessKeySecret = process.env.ALIBABA_CLOUD_ACCESS_KEY_SECRET || '';
+  let accessKeyId = process.env.ALIBABA_CLOUD_ACCESS_KEY_ID || '';
+  let accessKeySecret = process.env.ALIBABA_CLOUD_ACCESS_KEY_SECRET || '';
   const employeeName = process.env.VIBEOPS_EMPLOYEE_NAME || 'default';
+
+  // 环境变量为空时回退到阿里云默认凭据链
+  if (!accessKeyId || !accessKeySecret) {
+    try {
+      const creds = await loadCredentialsFromChain();
+      accessKeyId = creds.accessKeyId;
+      accessKeySecret = creds.accessKeySecret;
+    } catch (e) {
+      console.error(`凭据链加载失败: ${e}，请手动设置环境变量`);
+    }
+  }
 
   // Validate required fields
   const missingVars: string[] = [];

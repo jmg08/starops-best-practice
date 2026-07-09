@@ -26,6 +26,7 @@ classifiers = [
 dependencies = [
     "alibabacloud-starops20260428>=1.0.0",
     "alibabacloud-tea-openapi>=0.3.0",
+    "alibabacloud-credentials>=0.3.0",
     "python-dotenv>=1.0.0",
 ]
 

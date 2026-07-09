@@ -4,6 +4,7 @@ STAROps SDK 配置
 """
 
 import os
+import sys
 from dataclasses import dataclass
 from typing import Optional
 
@@ -35,6 +36,15 @@ class Config:
         region = os.getenv("VIBEOPS_REGION", "cn-hangzhou")
         access_key_id = os.getenv("ALIBABA_CLOUD_ACCESS_KEY_ID", "")
         access_key_secret = os.getenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET", "")
+
+        # 环境变量为空时回退到阿里云默认凭据链
+        if not access_key_id or not access_key_secret:
+            try:
+                from .credentials import load_credentials_from_chain
+                access_key_id, access_key_secret = load_credentials_from_chain()
+            except Exception as e:
+                print(f"凭据链加载失败: {e}，请手动设置环境变量", file=sys.stderr)
+
         employee_name = os.getenv("VIBEOPS_EMPLOYEE_NAME", "default")
 
         # Validate required fields

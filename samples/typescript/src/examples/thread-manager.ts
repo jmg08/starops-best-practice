@@ -113,7 +113,7 @@ async function main() {
 
   try {
     // Load configuration
-    const cfg = loadConfigFromEnv();
+    const cfg = await loadConfigFromEnv();
 
     // Create client
     const client = new AgentClient(cfg);
