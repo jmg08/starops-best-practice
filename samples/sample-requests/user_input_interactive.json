@@ -1,0 +1,17 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "contents": [
+        {
+          "type": "text",
+          "value": "演示 user_input 事件"
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "userContext": "[{\"type\":\"metadata\",\"data\":{\"from_time\":1782272054,\"to_time\":1782272954,\"fromTime\":1782272054,\"toTime\":1782272954}}]",
+    "config": "{\"disableThreadData\":false}"
+  }
+}

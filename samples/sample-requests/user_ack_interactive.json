@@ -1,0 +1,17 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "contents": [
+        {
+          "type": "text",
+          "value": "aliyun ecs DescribeInstances --RegionId cn-hangzhou"
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "userContext": "[{\"type\":\"metadata\",\"data\":{\"from_time\":1782200069,\"to_time\":1782200969,\"fromTime\":1782200069,\"toTime\":1782200969}}]",
+    "config": "{\"disableThreadData\":false}"
+  }
+}
