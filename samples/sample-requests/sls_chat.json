@@ -1,0 +1,19 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "contents": [
+        {
+          "type": "text",
+          "value": "帮我查询最近15分钟内状态码为5xx的错误日志，按时间趋势展示，并统计每个接口的错误次数Top10"
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "skill_name": "sql_generation",
+    "userContext": "[{\"type\":\"metadata\",\"data\":{\"from_time\":1772265524,\"to_time\":1772266424,\"fromTime\":1772265524,\"toTime\":1772266424}}]",
+    "skill": "sql_generation",
+    "config": "{\"disableThreadData\":false}"
+  }
+}
